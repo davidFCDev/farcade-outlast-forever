@@ -1,0 +1,2647 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0"
+    />
+    <title>Bubble Bluster</title>
+    <script src="https://cdn.jsdelivr.net/npm/@farcade/game-sdk@0.2.0/dist/index.min.js"></script>
+    <!-- Preload loader sprite for instant splash -->
+    <link
+      rel="preload"
+      href="https://lqy3lriiybxcejon.public.blob.vercel-storage.com/zS0QCi0PfUjO/chuckytes2t-a9Hz89icXVQVgOkchS0ssNllYtJfiu.png?RB0F"
+      as="image"
+    />
+    <!-- Pixelify Sans for branded loader text -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        padding: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        font-family: "Pixelify Sans", system-ui, -apple-system, "Segoe UI",
+          Arial, sans-serif;
+        overflow: hidden;
+        touch-action: none;
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
+      }
+      #game-container {
+        position: relative;
+        max-width: 500px;
+        width: 100%;
+        max-height: 1000px;
+        height: 100dvh; /* ocupar todo el alto de la ventana */
+        min-height: 100svh; /* cubrir en móviles con barras */
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        overflow: hidden;
+        border: none; /* sin borde */
+        border-radius: 0; /* sin redondeado en la pantalla de inicio */
+        box-shadow: none; /* quitar glow neón */
+        box-sizing: border-box;
+        touch-action: none;
+      }
+      #game-canvas {
+        display: block;
+        width: 100%;
+        height: calc(100% - 60px); /* ocupar todo el alto bajo el header */
+        position: absolute;
+        top: 60px;
+        background: rgba(45, 45, 45, 0.7);
+        touch-action: none;
+      }
+      #header {
+        position: absolute;
+        top: 0;
+        width: 100%;
+        height: 60px;
+        background: #1a1a1a;
+        color: #f3efe7; /* texto claro cálido, sin neón */
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 20px;
+        padding: 0 20px;
+        box-sizing: border-box;
+        pointer-events: none;
+      }
+      #header span {
+        font-size: clamp(16px, 4vw, 20px);
+        text-shadow: none; /* quitar brillo neón */
+      }
+      #next-bubbles {
+        position: absolute;
+        bottom: 10px;
+        right: 10px;
+        display: flex;
+        flex-direction: row;
+        gap: 8px;
+        z-index: 10;
+      }
+      .next-bubble {
+        width: clamp(16px, 5vw, 24px);
+        height: clamp(16px, 5vw, 24px);
+        border-radius: 50%;
+        border: 2px solid #fff;
+      }
+      #start-screen {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.95)
+          url("https://lqy3lriiybxcejon.public.blob.vercel-storage.com/Y58Z5vSLnB41/fondo-bubble-LrEejaB5Fy4xPW2TJzrN559v8akbG7.png?x6Ua")
+          center/cover no-repeat;
+        backdrop-filter: brightness(50%);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        color: #f3efe7; /* texto claro y cálido sobre fondo oscuro */
+        text-shadow: 0 2px 0 rgba(0, 0, 0, 0.6);
+        z-index: 20;
+        text-align: center;
+      }
+      #start-screen h1 {
+        font-size: clamp(72px, 16vw, 120px); /* título aún más grande */
+        line-height: 1; /* apilar bien las dos líneas */
+        margin-bottom: clamp(
+          32px,
+          8vw,
+          64px
+        ); /* más separación con instrucciones */
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #ffd166; /* color cálido que contrasta */
+        /* contorno más grueso mediante múltiples sombras */
+        text-shadow: -3px -3px 0 #000, 3px -3px 0 #000, -3px 3px 0 #000,
+          3px 3px 0 #000, 0px -3px 0 #000, 0px 3px 0 #000, -3px 0px 0 #000,
+          3px 0px 0 #000, 0 4px 8px rgba(0, 0, 0, 0.5);
+      }
+      #start-screen p {
+        font-size: clamp(16px, 4.8vw, 22px); /* tamaño legible */
+        font-weight: 700; /* más peso para mayor legibilidad */
+        width: 100%; /* ocupar todo el ancho del contenedor */
+        max-width: none;
+        box-sizing: border-box;
+        padding: clamp(10px, 3.2vw, 16px);
+        margin: clamp(16px, 4vw, 32px) 0 clamp(40px, 8vw, 72px); /* más separación con título y botón */
+        color: #ffffff; /* texto blanco para mejor legibilidad */
+        background: rgba(0, 0, 0, 0.6); /* componente sombreado */
+        border: none; /* sin borde */
+        border-radius: 0; /* sin esquinas redondeadas */
+        text-shadow: none;
+      }
+      /* Separación extra del botón sólo en start screen */
+      #start-screen .btn {
+        margin-top: clamp(20px, 5vw, 40px);
+      }
+      #character-select-screen {
+        position: fixed; /* cubrir toda la pantalla */
+        inset: 0;
+        width: 100vw;
+        height: 100dvh; /* evitar huecos en mobile */
+        min-height: 100svh;
+        background: rgba(0, 0, 0, 0.6);
+        display: none;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        color: #f3efe7; /* consistente con start screen */
+        text-shadow: 0 2px 0 rgba(0, 0, 0, 0.5);
+        z-index: 1000; /* por encima del header */
+        text-align: center;
+        padding: 10px;
+        box-sizing: border-box;
+        border-radius: 0;
+      }
+      /* Overlays sin bordes redondeados y a pantalla completa del contenedor */
+      #start-screen,
+      #level-screen {
+        border-radius: 0;
+      }
+      #character-select-screen h1 {
+        font-size: clamp(32px, 8vw, 48px);
+        margin-bottom: 20px;
+        text-transform: uppercase;
+        width: 100%;
+        text-align: center;
+        color: #ffd166;
+        text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000,
+          2px 2px 0 #000;
+      }
+      /* Nuevo layout de selección */
+      .char-select-wrapper {
+        display: grid;
+        grid-template-columns: 36px 1fr 36px; /* flechas aún más pequeñas */
+        gap: 6px;
+        align-items: center;
+        justify-items: center; /* centrar card en el track central */
+        width: min(95vw, 480px); /* más ancho para mejor lectura */
+      }
+      .nav-arrow {
+        background: rgba(0, 0, 0, 0.65);
+        color: #ffd166;
+        border: 3px solid #000;
+        border-radius: 10px;
+        width: 36px; /* más pequeñas */
+        height: 36px; /* más pequeñas */
+        font-size: 22px;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 2px 0 #111;
+      }
+      .nav-arrow:active {
+        transform: translateY(1px);
+      }
+      #char-card {
+        background: rgba(15, 15, 15, 0.85);
+        border: 3px solid #000;
+        border-radius: 12px;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        width: 100%; /* que ocupe el track central */
+        max-width: 320px; /* límite superior aumentado */
+        height: 450px; /* más altura para la descripción completa */
+        overflow: hidden; /* mantiene layout estable sin desbordes visibles */
+        margin: 0 auto;
+        box-sizing: border-box;
+      }
+      #char-preview {
+        width: 128px; /* reducir para caber en pantallas pequeñas */
+        height: 128px;
+        image-rendering: pixelated;
+        background: #111;
+        border: 3px solid #000;
+        border-radius: 8px;
+      }
+      #char-name {
+        font-size: clamp(18px, 4.6vw, 24px);
+        color: #ffd166;
+        text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000,
+          2px 2px 0 #000;
+      }
+      #char-lore {
+        font-size: clamp(10px, 3vw, 13px); /* ligeramente más pequeño */
+        color: #eae6dd;
+        /* Mostrar completo, respetando saltos de línea del texto */
+        white-space: pre-line;
+        max-width: 95%; /* aprovechar más el ancho */
+        line-height: 1.2; /* más compacto */
+        text-align: center;
+      }
+      #char-skill {
+        font-size: clamp(11px, 3.4vw, 15px);
+        color: #f3efe7;
+        margin-bottom: 8px;
+        /* Permitir más líneas para descripciones completas */
+        display: -webkit-box;
+        line-clamp: 4; /* aumentado de 2 a 4 líneas */
+        -webkit-line-clamp: 4;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        text-align: center;
+        line-height: 1.3;
+        max-width: 95%; /* aprovechar más el ancho */
+      }
+      .skill-label {
+        color: #ffd166;
+        font-weight: 700;
+      }
+      #char-select-btn {
+        margin-top: 8px;
+      }
+      #level-screen {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.6); /* consistente con otras pantallas */
+        display: none;
+        justify-content: center;
+        align-items: center;
+        color: #ffd166; /* mismo color de títulos */
+        /* contorno negro en lugar de neón */
+        text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000,
+          2px 2px 0 #000;
+        font-size: clamp(28px, 7vw, 40px);
+        z-index: 20;
+        text-transform: uppercase;
+      }
+      /* Backdrop oscuro para la selección (debajo del modal) */
+      #selection-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.65);
+        z-index: 900;
+        display: none;
+      }
+      .btn {
+        padding: clamp(10px, 3.2vw, 16px) clamp(22px, 5.2vw, 32px); /* más grande */
+        font-size: clamp(16px, 4.5vw, 22px);
+        font-weight: 700; /* más peso */
+        cursor: pointer;
+        background: #ffc1e3; /* rosa chicle claro */
+        color: #2b2b2b;
+        border: 3px solid #222; /* borde oscuro */
+        border-radius: 12px;
+        text-shadow: none; /* quitar neon */
+        box-shadow: 0 2px 0 #111, 0 6px 12px rgba(0, 0, 0, 0.25);
+        transition: transform 120ms ease, background-color 120ms ease,
+          box-shadow 120ms ease;
+        appearance: none;
+        -webkit-appearance: none;
+        filter: none;
+      }
+      .btn:hover {
+        background: #ffb3db; /* hover un poco más intenso manteniendo claridad */
+        box-shadow: 0 1px 0 #111, 0 4px 8px rgba(0, 0, 0, 0.2);
+        transform: translateY(-1px);
+      }
+      .btn:active {
+        background: #ffa6d3;
+        transform: translateY(0);
+        box-shadow: 0 0 0 #111, 0 2px 4px rgba(0, 0, 0, 0.2);
+      }
+
+      /* ===== Loader overlay (sólo primera carga de la sesión) ===== */
+      #loader-overlay-4 {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #000; /* sin flash */
+        z-index: 9999;
+      }
+      #loader-overlay-4 .loader-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 20px;
+        width: 100%;
+      }
+      #loader4-canvas {
+        width: 241px;
+        height: 345px;
+        image-rendering: pixelated;
+        transform-origin: center;
+        background: transparent;
+        display: block;
+      }
+      /* Texto de marca */
+      #studio-text-4 {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        font-family: "Pixelify Sans", "Press Start 2P", system-ui, monospace;
+        font-weight: 700;
+        color: #ffffff;
+        text-shadow: 3px 3px 0 #000;
+        gap: 6px;
+        opacity: 0;
+        transform: translateY(8px) scale(0.98);
+        transition: opacity 700ms ease,
+          transform 500ms cubic-bezier(0.2, 0.6, 0.2, 1);
+      }
+      #studio-text-4.show {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+      #studio-text-4 .brand-main {
+        font-size: 24px;
+        letter-spacing: 3px;
+        line-height: 1;
+        color: #fff;
+        text-shadow: 2px 0 #000, -2px 0 #000, 0 2px #000, 0 -2px #000,
+          2px 2px #000, -2px 2px #000, 2px -2px #000, -2px -2px #000,
+          3px 3px 0 #000;
+      }
+      #studio-text-4 .brand-main::after {
+        content: "";
+        display: block;
+        width: 160px;
+        height: 6px;
+        margin: 8px auto 0;
+        background: #b7ff00;
+        border: 3px solid #000;
+        box-shadow: 4px 4px 0 #000;
+      }
+      #studio-text-4 .brand-sub {
+        font-size: 14px;
+        letter-spacing: 4px;
+        color: #b7ff00;
+        text-shadow: 3px 3px 0 #000, 0 0 10px rgba(183, 255, 0, 0.3);
+        line-height: 1;
+      }
+      #studio-text-4 .brand-tm {
+        position: absolute;
+        top: -6px;
+        right: -16px;
+        font-size: 9px;
+        color: #ffffff;
+        text-shadow: 2px 2px 0 #000;
+        opacity: 0.9;
+      }
+      @media (max-width: 520px) {
+        #loader4-canvas {
+          transform: scale(0.8);
+        }
+        #studio-text-4 .brand-main {
+          font-size: 20px;
+        }
+        #studio-text-4 .brand-main::after {
+          width: 140px;
+          height: 6px;
+          margin-top: 6px;
+        }
+        #studio-text-4 .brand-sub {
+          font-size: 13px;
+        }
+      }
+
+      /* Animación para burbujas comodín especiales */
+      @keyframes pulse {
+        0% {
+          opacity: 1;
+          transform: scale(1);
+        }
+        50% {
+          opacity: 0.8;
+          transform: scale(1.05);
+        }
+        100% {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Loader overlay (visible de inicio para evitar flash) -->
+    <div id="loader-overlay-4">
+      <div class="loader-content">
+        <canvas id="loader4-canvas" width="241" height="345"></canvas>
+        <div id="studio-text-4">
+          <span class="brand-main">HELLBOUND</span>
+          <span class="brand-sub">STUDIOS</span>
+          <span class="brand-tm">™</span>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // ===== Loader inicial con sprite (primera carga) =====
+      (function initSplash4() {
+        try {
+          const overlay = document.getElementById("loader-overlay-4");
+          const lcanvas = document.getElementById("loader4-canvas");
+          const brand = document.getElementById("studio-text-4");
+          if (!overlay || !lcanvas || !brand) return;
+          if (window._splashShown4) {
+            overlay.style.display = "none";
+            return;
+          }
+          window._splashShown4 = true; // sólo una vez por sesión
+
+          const SPRITE_URL =
+            "https://lqy3lriiybxcejon.public.blob.vercel-storage.com/zS0QCi0PfUjO/chuckytes2t-a9Hz89icXVQVgOkchS0ssNllYtJfiu.png?RB0F";
+          const img = new Image();
+          img.onload = () => {
+            const c2d = lcanvas.getContext("2d");
+            if (c2d && c2d.imageSmoothingEnabled !== undefined)
+              c2d.imageSmoothingEnabled = false;
+            const FRAME_W = 241,
+              FRAME_H = 345,
+              FRAME_COUNT = 18;
+            const DURATION_MS = 2800,
+              FRAME_MS = Math.floor(DURATION_MS / FRAME_COUNT);
+            let frame = 0;
+            const draw = () => {
+              c2d.clearRect(0, 0, FRAME_W, FRAME_H);
+              c2d.drawImage(
+                img,
+                frame * FRAME_W,
+                0,
+                FRAME_W,
+                FRAME_H,
+                0,
+                0,
+                FRAME_W,
+                FRAME_H
+              );
+            };
+            draw();
+            const it = setInterval(() => {
+              if (frame < FRAME_COUNT - 1) {
+                frame++;
+                draw();
+              } else {
+                clearInterval(it);
+                brand.classList.add("show");
+                setTimeout(() => {
+                  brand.classList.remove("show");
+                  setTimeout(() => {
+                    overlay.style.display = "none";
+                  }, 600);
+                }, 1200);
+              }
+            }, FRAME_MS);
+          };
+          img.src = SPRITE_URL;
+        } catch (e) {
+          /* no-op */
+        }
+      })();
+    </script>
+    <div id="game-container">
+      <div id="selection-backdrop"></div>
+      <div id="header">
+        <span id="score">Score: 0</span>
+        <span id="level">Level: 1</span>
+        <span id="time">Time: 0s</span>
+      </div>
+      <canvas id="game-canvas"></canvas>
+      <div id="next-bubbles">
+        <div id="next1" class="next-bubble"></div>
+        <div id="next2" class="next-bubble"></div>
+      </div>
+      <div id="start-screen">
+        <h1>Bubble<br />Bluster</h1>
+        <p id="instructions"></p>
+        <button id="start-btn" class="btn">Start</button>
+      </div>
+      <div id="character-select-screen">
+        <h1>Choose Your Character</h1>
+        <div class="char-select-wrapper">
+          <button id="char-prev" class="nav-arrow" aria-label="Previous">
+            ‹
+          </button>
+          <div id="char-card">
+            <canvas id="char-preview" width="160" height="160"></canvas>
+            <div id="char-name">Pinky</div>
+            <div id="char-lore"></div>
+            <div id="char-skill">
+              <span class="skill-label">Skill:</span> Remove all bubbles of one
+              color
+            </div>
+            <button id="char-select-btn" class="btn">Select</button>
+          </div>
+          <button id="char-next" class="nav-arrow" aria-label="Next">›</button>
+        </div>
+      </div>
+      <div id="level-screen">
+        <h1>Level <span id="level-number">1</span></h1>
+      </div>
+      <audio id="bgm">
+        <source id="bgm-source" src="" type="audio/mpeg" />
+        Your browser does not support the audio element.
+      </audio>
+    </div>
+
+    <script>
+      const canvas = document.getElementById("game-canvas");
+      const ctx = canvas.getContext("2d");
+      if (ctx && ctx.imageSmoothingEnabled !== undefined) {
+        ctx.imageSmoothingEnabled = false; // pixel art nítido en gameplay
+      }
+      const scoreDisplay = document.getElementById("score");
+      const levelDisplay = document.getElementById("level");
+      const timeDisplay = document.getElementById("time");
+      const instructions = document.getElementById("instructions");
+      const next1 = document.getElementById("next1");
+      const next2 = document.getElementById("next2");
+      const startScreen = document.getElementById("start-screen");
+      const characterSelectScreen = document.getElementById(
+        "character-select-screen"
+      );
+      const levelScreen = document.getElementById("level-screen");
+      const bgm = document.getElementById("bgm");
+      const bgmSource = document.getElementById("bgm-source");
+      const gameContainer = document.getElementById("game-container");
+      const headerEl = document.getElementById("header");
+
+      // Game constants
+      const GRID_WIDTH = 8;
+      let BUBBLE_SIZE;
+      const GRID_HEIGHT = 14;
+      const ALL_COLORS = [
+        "#FF0000", // Red
+        "#00FF00", // Green
+        "#0000FF", // Blue
+        "#FFFF00", // Yellow
+        "#FF00FF", // Magenta
+      ];
+      const NEON_BLUE = "#00ffcc"; // Neon blue for special bubble
+      let COLORS = [];
+      const HEADER_HEIGHT = 50;
+      let LIMIT_LINE_Y = 0;
+      const BASE_SCORE_PER_LEVEL = 2000; // Aumentado de 1000 a 2000
+      const MAX_TIME_BONUS = 8000; // Aumentado de 5000 a 8000
+      const TIME_BONUS_DECREASE = 50;
+      const BASE_SHOTS_PER_CEILING_DROP = 10; // Reducido de 12 a 10 para un poco más de dificultad
+      const ABILITY_COOLDOWN_PINKY = 40000; // 40 seconds for Pinky
+      const SPEECH_BUBBLE_DURATION = 2000; // 2 seconds in milliseconds
+
+      // Music tracks
+      const musicTracks = [
+        "https://lqy3lriiybxcejon.public.blob.vercel-storage.com/Y58Z5vSLnB41/retro-game-music-245230-t3lDfWOigoA1V09Piz6TAELdlQ4wzd.mpeg?Kmyu",
+        "https://lqy3lriiybxcejon.public.blob.vercel-storage.com/Y58Z5vSLnB41/8-bit-retro-game-music-233964-05Qr3Rr4tLhisYkFeqlkWvc0H5R9dq.mpeg?UxMx",
+        "https://lqy3lriiybxcejon.public.blob.vercel-storage.com/Y58Z5vSLnB41/level-iii-294428-qud1YQbagnOWtA7TSUDINswBlf7Ii2.mpeg?NnTo",
+        "https://lqy3lriiybxcejon.public.blob.vercel-storage.com/Y58Z5vSLnB41/retro-game-arcade-236133-cD0ddckxG003A916BaDw01qUsA2rdD.mpeg?ZAQ9",
+      ];
+      let currentTrackIndex = 0;
+
+      // Fondo único para todos los niveles (consistente con el arte)
+      const levelBackgrounds = [
+        "https://lqy3lriiybxcejon.public.blob.vercel-storage.com/Y58Z5vSLnB41/ChatGPT%20Image%2025%20ago%202025%2C%2017_20_59-ax7KSOjGXiNcpnyq1vtvda1puuCSqB.png?NBNR",
+      ];
+      const startScreenBackground =
+        "https://lqy3lriiybxcejon.public.blob.vercel-storage.com/Y58Z5vSLnB41/fondo-bubble-LrEejaB5Fy4xPW2TJzrN559v8akbG7.png?x6Ua";
+
+      // Speech bubble messages
+      const largeMatchMessages = [
+        "Wooow!",
+        "Amazing!",
+        "Great job!",
+        "Incredible!",
+        "Fantastic!",
+      ];
+
+      // Short periodic messages to add flavor every X shots
+      const periodicShotMessages = [
+        "Nice shot!",
+        "Pop pop!",
+        "Keep it up!",
+        "Let’s go!",
+        "Clean aim!",
+        "Bubble burst!",
+      ];
+      const PERIODIC_SHOT_MESSAGE_EVERY = 4; // configurable: show a message every 4 shots
+      let lastPeriodicMessageAt = 0; // timestamp to avoid spamming
+
+      // Game state
+      let grid = [];
+      let currentBubble = null;
+      let nextBubbles = [];
+      let launcherAngle = Math.PI / 2;
+      let totalScore = 0;
+      let gameOver = false;
+      let gameStarted = false;
+      let particles = [];
+      let touchStartX = null;
+      let keysPressed = { left: false, right: false };
+      let keyPressedThisFrame = { left: false, right: false };
+      let isMuted = false;
+      let canShoot = true;
+      let audioContext = null;
+      let currentLevel = 1;
+      let levelStartTime = 0;
+      let shotCount = 0;
+      let ceilingOffset = 0; // Ceiling offset in pixels
+      let selectedCharacter = null; // Selected character ("Pinky" | "Bluey" | "Whitey")
+      let abilityAvailable = true;
+      let lastAbilityUse = 0;
+      let abilityCooldown = 0;
+      let speechBubble = null; // { text, duration, opacity }
+      let attackAnimUntil = 0; // timestamp hasta el que reproducir anim de ataque
+
+      // Variables para habilidades especiales
+      let whiteyWildShotsLeft = 0; // Contador de disparos comodín restantes para Whitey
+
+      // Personajes (UI selección + juego)
+      const CHARACTERS = [
+        {
+          id: "Pinky",
+          name: "Pinky",
+          lore: "A rosy spark born in the Sugarwood heart.\nLives to pop bubbles and light up the skies.",
+          skillDesc:
+            "Color Blast: Orange shot that eliminates ALL bubbles of the target color from the entire field",
+          hasSkill: true,
+          // 128x32 (4 frames)
+          spriteIdle:
+            "https://lqy3lriiybxcejon.public.blob.vercel-storage.com/Y58Z5vSLnB41/Pink_Monster_Idle_4-2uhv9rm8Zn7OwdWYW6kMCoVsNaHcLw.png?KFYP",
+          spriteAttack:
+            "https://lqy3lriiybxcejon.public.blob.vercel-storage.com/Y58Z5vSLnB41/Pink_Monster_Attack1_4-omF6VS5k516cMBwIyH3Xl1NuiYHHAZ.png?UUBn",
+        },
+        {
+          id: "Bluey",
+          name: "Bluey",
+          lore: "An azure explorer from the Floating Lakes.\nCalm waves, precise pops.",
+          skillDesc:
+            "Bomb Shot: Black explosive that destroys ALL bubbles in a large 3-tile radius area",
+          hasSkill: true,
+          spriteIdle:
+            "https://lqy3lriiybxcejon.public.blob.vercel-storage.com/Y58Z5vSLnB41/Dude_Monster_Idle_4-jPYg5zpbFLOwN0t14GVorJ1DeNVGAM.png?sKQP",
+          spriteAttack:
+            "https://lqy3lriiybxcejon.public.blob.vercel-storage.com/Y58Z5vSLnB41/Dude_Monster_Attack1_4-oMGRnm2hQIdEPhveDUgxnLTmOEAy2q.png?DAm4",
+        },
+        {
+          id: "Whitey",
+          name: "Whitey",
+          lore: "A snowy guardian from the Clouded Peaks.\nSilent, sharp, a natural enemy of bubbles.",
+          skillDesc:
+            "Color Pick: 3 white shots that adapt to ANY color and eliminate connected groups (no 3-match limit)",
+          hasSkill: true,
+          spriteIdle:
+            "https://lqy3lriiybxcejon.public.blob.vercel-storage.com/Y58Z5vSLnB41/Owlet_Monster_Idle_4-2kKOi58HJNlpwUnj7rBlclsjnnWU4P.png?GA7n",
+          spriteAttack:
+            "https://lqy3lriiybxcejon.public.blob.vercel-storage.com/Y58Z5vSLnB41/Owlet_Monster_Attack1_4-IPV3tIX6BdetCSKYUHviJxvMpBsD50.png?UTIu",
+        },
+      ];
+
+      // Carga de sprites y animación (preview e in-game)
+      const characterSprites = {}; // id -> { idle: {img,loaded}, attack: {img,loaded} }
+      const LOCAL_PLACEHOLDERS = [
+        "public/Card1.png",
+        "public/Card2.png",
+        "public/Card3.png",
+      ];
+      function loadCharImage(charId, kind, url, phUrl) {
+        const img = new Image();
+        img.onload = () => {
+          characterSprites[charId] = characterSprites[charId] || {};
+          characterSprites[charId][kind] = { img, loaded: true };
+        };
+        img.onerror = () => {
+          const ph = new Image();
+          ph.onload = () => {
+            characterSprites[charId] = characterSprites[charId] || {};
+            characterSprites[charId][kind] = { img: ph, loaded: true };
+          };
+          ph.onerror = () => {
+            characterSprites[charId] = characterSprites[charId] || {};
+            characterSprites[charId][kind] = { img, loaded: false };
+          };
+          ph.src = phUrl;
+        };
+        img.src = url;
+      }
+      CHARACTERS.forEach((c, idx) => {
+        const ph = LOCAL_PLACEHOLDERS[idx % LOCAL_PLACEHOLDERS.length];
+        loadCharImage(c.id, "idle", c.spriteIdle, ph);
+        loadCharImage(c.id, "attack", c.spriteAttack || c.spriteIdle, ph);
+      });
+
+      // Estado animación preview (pantalla selección) y en juego
+      let charIndex = 0;
+      let previewFrame = 0;
+      let lastPreviewTime = 0;
+      let previewRunning = false;
+      const PREVIEW_FPS = 8; // frames por segundo
+      const PREVIEW_MS_PER_FRAME = 1000 / PREVIEW_FPS;
+      let inGameFrame = 0;
+      let lastInGameTime = 0;
+      const INGAME_FPS = 8;
+      const INGAME_MS_PER_FRAME = 1000 / INGAME_FPS;
+
+      // Canvas de preview
+      const previewCanvas = document.getElementById("char-preview");
+      const previewCtx = previewCanvas?.getContext("2d");
+      if (previewCtx && previewCtx.imageSmoothingEnabled !== undefined)
+        previewCtx.imageSmoothingEnabled = false;
+
+      function updateCharCard() {
+        try {
+          const char = CHARACTERS[charIndex];
+          const nameEl = document.getElementById("char-name");
+          const loreEl = document.getElementById("char-lore");
+          const skillEl = document.getElementById("char-skill");
+          if (nameEl) nameEl.textContent = char.name;
+          if (loreEl) loreEl.textContent = char.lore || "";
+          if (skillEl)
+            skillEl.innerHTML = `<span class="skill-label">Skill:</span> ${
+              char.skillDesc || ""
+            }`;
+        } catch (e) {
+          console.error("Update char card error:", e);
+        }
+      }
+
+      function drawPreviewFrame(timestamp) {
+        if (!previewRunning) return;
+        try {
+          if (!previewCtx) return;
+          const char = CHARACTERS[charIndex];
+          const sprite = characterSprites[char.id]?.idle;
+          const w = 32,
+            h = 32,
+            frames = 4;
+          if (!lastPreviewTime) lastPreviewTime = timestamp;
+          const delta = timestamp - lastPreviewTime;
+          if (delta >= PREVIEW_MS_PER_FRAME) {
+            previewFrame = (previewFrame + 1) % frames;
+            lastPreviewTime = timestamp;
+          }
+          previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+          // Fondo
+          previewCtx.fillStyle = "#111";
+          previewCtx.fillRect(0, 0, previewCanvas.width, previewCanvas.height);
+          const destW = Math.min(128, previewCanvas.width - 16);
+          const destH = Math.min(128, previewCanvas.height - 16);
+          const dx = (previewCanvas.width - destW) / 2;
+          const dy = (previewCanvas.height - destH) / 2;
+          if (
+            sprite?.loaded &&
+            sprite.img.width >= 128 &&
+            sprite.img.height >= 32
+          ) {
+            // spritesheet 128x32 (4x 32)
+            previewCtx.drawImage(
+              sprite.img,
+              previewFrame * w,
+              0,
+              w,
+              h,
+              dx,
+              dy,
+              destW,
+              destH
+            );
+          } else if (sprite?.loaded) {
+            // Imagen simple: dibujar centrada sin slicing
+            previewCtx.drawImage(sprite.img, dx, dy, destW, destH);
+          } else {
+            // Fallback si no carga sprite
+            previewCtx.fillStyle = "#ff69b4";
+            previewCtx.fillRect(
+              16,
+              16,
+              previewCanvas.width - 32,
+              previewCanvas.height - 32
+            );
+          }
+        } catch (e) {
+          console.error("Preview draw error:", e);
+        }
+        if (previewRunning) requestAnimationFrame(drawPreviewFrame);
+      }
+
+      function startPreview() {
+        previewRunning = true;
+        lastPreviewTime = 0;
+        previewFrame = 0;
+        updateCharCard();
+        requestAnimationFrame(drawPreviewFrame);
+      }
+      function stopPreview() {
+        previewRunning = false;
+      }
+
+      // Detect if mobile device
+      const isMobile = /Mobi|Android|iPhone|iPad|iPod|Touch/.test(
+        navigator.userAgent
+      );
+
+      // Resize canvas
+      function resizeCanvas() {
+        try {
+          const container = document.getElementById("game-container");
+          const containerWidth = Math.min(500, container.clientWidth);
+          const containerHeight = Math.min(1000, container.clientHeight);
+
+          canvas.width = containerWidth;
+          canvas.height = containerHeight - HEADER_HEIGHT;
+          canvas.style.width = `${containerWidth}px`;
+          canvas.style.height = `${containerHeight - HEADER_HEIGHT}px`;
+
+          BUBBLE_SIZE = canvas.width / GRID_WIDTH;
+          LIMIT_LINE_Y = canvas.height - (isMobile ? 120 : 150); // Raised game over line
+
+          if (next1 && next2) {
+            next1.style.width = `${clamp(16, (5 * canvas.width) / 100, 24)}px`;
+            next1.style.height = `${clamp(16, (5 * canvas.width) / 100, 24)}px`;
+            next2.style.width = `${clamp(16, (5 * canvas.width) / 100, 24)}px`;
+            next2.style.height = `${clamp(16, (5 * canvas.width) / 100, 24)}px`;
+          }
+
+          // Asegurar pixel-art nítido tras cualquier resize
+          if (ctx && ctx.imageSmoothingEnabled !== undefined) {
+            ctx.imageSmoothingEnabled = false;
+          }
+        } catch (error) {
+          console.error("Canvas resize error:", error);
+        }
+      }
+      function clamp(min, val, max) {
+        return Math.max(min, Math.min(max, val));
+      }
+      resizeCanvas();
+      window.addEventListener("resize", resizeCanvas, { passive: true });
+
+      // Initialize audio context
+      function initAudioContext() {
+        try {
+          if (!audioContext) {
+            audioContext = new (window.AudioContext ||
+              window.webkitAudioContext)();
+            return true;
+          }
+        } catch (error) {
+          console.error("Audio context initialization error:", error);
+        }
+        return false;
+      }
+
+      // Play background music
+      function playBgm() {
+        try {
+          if (!isMuted && bgm) {
+            bgmSource.src = musicTracks[currentTrackIndex];
+            bgm.volume = 0.3; // Set volume to 30% to soften music
+            bgm.load();
+            bgm.play().catch((error) => {
+              console.error("BGM playback error:", error);
+            });
+          }
+        } catch (error) {
+          console.error("BGM error:", error);
+        }
+      }
+
+      // Switch to next music track
+      function nextTrack() {
+        try {
+          currentTrackIndex = (currentTrackIndex + 1) % musicTracks.length;
+          playBgm();
+        } catch (error) {
+          console.error("Next track error:", error);
+        }
+      }
+
+      // Cleanup audio
+      function cleanupAudio() {
+        try {
+          if (bgm) {
+            bgm.pause();
+            bgm.currentTime = 0;
+          }
+          if (audioContext) {
+            audioContext.close().catch((error) => {
+              console.error("Audio context cleanup error:", error);
+            });
+            audioContext = null;
+          }
+        } catch (error) {
+          console.error("Audio cleanup error:", error);
+        }
+      }
+
+      // Get background image for level
+      function getLevelBackground(level) {
+        return levelBackgrounds[0];
+      }
+
+      // Show level screen
+      function showLevelScreen() {
+        try {
+          const levelNumber = document.getElementById("level-number");
+          if (levelScreen && levelNumber) {
+            levelNumber.textContent = currentLevel;
+            levelScreen.style.display = "flex";
+            canShoot = false;
+            // Mantener el mismo fondo para todos los niveles
+            gameContainer.style.backgroundImage = `url("${getLevelBackground(
+              currentLevel
+            )}")`;
+            setTimeout(() => {
+              levelScreen.style.display = "none";
+              canShoot = true;
+              levelStartTime = performance.now();
+              shotCount = 0; // Reset shot counter
+              ceilingOffset = 0; // Reset ceiling offset
+            }, 2000);
+          }
+        } catch (error) {
+          console.error("Show level screen error:", error);
+        }
+      }
+
+      // Lower ceiling (increment ceilingOffset)
+      function lowerCeiling() {
+        try {
+          ceilingOffset += (BUBBLE_SIZE * Math.sqrt(3)) / 2; // Move down one row
+          // Haptic feedback if available
+          if (window.FarcadeSDK) {
+            window.FarcadeSDK.singlePlayer.actions.hapticFeedback();
+          }
+        } catch (error) {
+          console.error("Lower ceiling error:", error);
+        }
+      }
+
+      // Initialize game
+      function init() {
+        try {
+          grid = Array(GRID_HEIGHT)
+            .fill()
+            .map(() => Array(GRID_WIDTH).fill(null));
+          const usedColors = new Set();
+          const initialRows = Math.min(
+            6 + Math.floor((currentLevel - 1) / 2),
+            GRID_HEIGHT - 2
+          );
+          for (let row = 0; row < initialRows; row++) {
+            const isOddRow = row % 2 === 1;
+            const numBubbles = isOddRow ? 7 : 8;
+            for (let col = 0; col < numBubbles; col++) {
+              const color =
+                ALL_COLORS[Math.floor(Math.random() * ALL_COLORS.length)];
+              grid[row][col] = color;
+              usedColors.add(color);
+            }
+          }
+          COLORS = Array.from(usedColors);
+          nextBubbles = [getRandomColor(), getExistingColor()];
+          spawnBubble();
+          totalScore = 0;
+          currentLevel = 1;
+          gameOver = false;
+          gameStarted = true;
+          particles = [];
+          canShoot = true;
+          levelStartTime = performance.now();
+          shotCount = 0;
+          ceilingOffset = 0;
+          abilityAvailable = true; // reset para nuevo nivel
+          whiteyWildShotsLeft = 0; // reset disparos comodín de Whitey
+          speechBubble = null;
+          if (characterSelectScreen)
+            characterSelectScreen.style.display = "none";
+          // volver a mostrar header y nexts
+          if (headerEl) headerEl.style.display = "flex";
+          const nextBubblesEl = document.getElementById("next-bubbles");
+          if (nextBubblesEl) nextBubblesEl.style.display = "flex";
+          // Set initial level background
+          gameContainer.style.backgroundImage = `url("${getLevelBackground(
+            currentLevel
+          )}")`;
+          showLevelScreen();
+          updateUI();
+          initAudioContext();
+          playBgm();
+
+          if (window.FarcadeSDK) {
+            window.FarcadeSDK.singlePlayer.actions.ready();
+          }
+        } catch (error) {
+          console.error("Game init error:", error);
+        }
+      }
+
+      // Get random color
+      function getRandomColor() {
+        return (
+          COLORS[Math.floor(Math.random() * COLORS.length)] || ALL_COLORS[0]
+        );
+      }
+
+      // Get existing color
+      function getExistingColor() {
+        const existingColors = new Set();
+        for (let row = 0; row < GRID_HEIGHT; row++) {
+          for (let col = 0; col < GRID_WIDTH; col++) {
+            if (grid[row][col]) existingColors.add(grid[row][col]);
+          }
+        }
+        const availableColors = Array.from(existingColors);
+        return (
+          availableColors[Math.floor(Math.random() * availableColors.length)] ||
+          ALL_COLORS[0]
+        );
+      }
+
+      // Spawn bubble
+      function spawnBubble() {
+        try {
+          const bubbleColor = nextBubbles.shift();
+          currentBubble = {
+            x: canvas.width / 2,
+            y: canvas.height - 20,
+            color: bubbleColor,
+            velocity: { x: 0, y: 0 },
+            moving: false,
+            isSpecial: false,
+            isWild: false,
+          };
+
+          // Si la esfera es blanca especial (comodín de Whitey), marcarla como comodín
+          if (
+            bubbleColor === "#FFFFFF" &&
+            selectedCharacter === "Whitey" &&
+            whiteyWildShotsLeft > 0
+          ) {
+            currentBubble.isWild = true;
+            whiteyWildShotsLeft--;
+          }
+
+          nextBubbles.push(getExistingColor());
+          canShoot = true;
+          updateUI();
+        } catch (error) {
+          console.error("Spawn bubble error:", error);
+        }
+      }
+
+      // Snap bubble to grid
+      function snapBubbleToGrid(bubble) {
+        try {
+          if (!bubble) return;
+          let pos = getGridPos(bubble.x, bubble.y);
+          const isOddRow = pos.row % 2 === 1;
+          const maxCols = isOddRow ? GRID_WIDTH - 1 : GRID_WIDTH;
+
+          if (grid[pos.row][pos.col] || pos.col >= maxCols || pos.col < 0) {
+            const emptyPos = findNearestEmptySpot(pos.row, pos.col, bubble);
+            if (emptyPos) {
+              pos = emptyPos;
+            } else {
+              for (let r = Math.max(0, pos.row - 1); r < GRID_HEIGHT; r++) {
+                const rMaxCols = r % 2 === 1 ? GRID_WIDTH - 1 : GRID_WIDTH;
+                for (let c = 0; c < rMaxCols; c++) {
+                  if (!grid[r][c] && (r === 0 || hasAdjacentBubble(r, c))) {
+                    pos = { row: r, col: c };
+                    break;
+                  }
+                }
+                if (
+                  pos.row === r &&
+                  (r === 0 || hasAdjacentBubble(pos.row, pos.col))
+                )
+                  break;
+              }
+            }
+          }
+
+          if (pos.row !== 0 && !hasAdjacentBubble(pos.row, pos.col)) {
+            for (
+              let r = Math.max(0, pos.row - 1);
+              r <= Math.min(GRID_HEIGHT - 1, pos.row + 1);
+              r++
+            ) {
+              const rMaxCols = r % 2 === 1 ? GRID_WIDTH - 1 : GRID_WIDTH;
+              for (let c = 0; c < rMaxCols; c++) {
+                if (!grid[r][c] && (r === 0 || hasAdjacentBubble(r, c))) {
+                  pos = { row: r, col: c };
+                  break;
+                }
+              }
+              if (
+                pos.row === r &&
+                (r === 0 || hasAdjacentBubble(pos.row, pos.col))
+              )
+                break;
+            }
+          }
+
+          if (bubble.isBomb) {
+            // Bomba de Bluey: elimina burbujas en un área de 3 casillas de radio (aumentado)
+            const bombRadius = 3;
+            for (
+              let row = Math.max(0, pos.row - bombRadius);
+              row <= Math.min(GRID_HEIGHT - 1, pos.row + bombRadius);
+              row++
+            ) {
+              const maxCols = row % 2 === 1 ? GRID_WIDTH - 1 : GRID_WIDTH;
+              for (
+                let col = Math.max(0, pos.col - bombRadius);
+                col <= Math.min(maxCols - 1, pos.col + bombRadius);
+                col++
+              ) {
+                const distance = Math.sqrt(
+                  Math.pow(row - pos.row, 2) + Math.pow(col - pos.col, 2)
+                );
+                if (distance <= bombRadius && grid[row][col]) {
+                  createParticles(row, col, grid[row][col], true); // Explosión especial
+                  grid[row][col] = null;
+                }
+              }
+            }
+            removeFloatingBubbles();
+            // Crear partículas de explosión en el punto de impacto
+            createParticles(pos.row, pos.col, "#FF0000", true);
+          } else if (bubble.isSpecial) {
+            // Burbuja especial de Pinky: elimina todas las bolas del color objetivo
+            let targetColor = null;
+            // Check adjacent bubbles for color
+            const neighbors = [
+              { row: pos.row - 1, col: pos.col },
+              { row: pos.row + 1, col: pos.col },
+              { row: pos.row, col: pos.col - 1 },
+              { row: pos.row, col: pos.col + 1 },
+              { row: pos.row - 1, col: isOddRow ? pos.col + 1 : pos.col - 1 },
+              { row: pos.row + 1, col: isOddRow ? pos.col + 1 : pos.col - 1 },
+            ];
+            for (let n of neighbors) {
+              if (
+                n.row >= 0 &&
+                n.row < GRID_HEIGHT &&
+                n.col >= 0 &&
+                n.col < (n.row % 2 === 1 ? GRID_WIDTH - 1 : GRID_WIDTH) &&
+                grid[n.row][n.col]
+              ) {
+                targetColor = grid[n.row][n.col];
+                break;
+              }
+            }
+            // If no adjacent bubble, use the color at the position (if any)
+            if (!targetColor && grid[pos.row][pos.col]) {
+              targetColor = grid[pos.row][pos.col];
+            }
+            if (targetColor) {
+              // Remove all bubbles of the target color
+              for (let row = 0; row < GRID_HEIGHT; row++) {
+                for (let col = 0; col < GRID_WIDTH; col++) {
+                  if (grid[row][col] === targetColor) {
+                    createParticles(row, col, "#FF6600", true); // Efecto naranja de Pinky
+                    grid[row][col] = null;
+                  }
+                }
+              }
+              removeFloatingBubbles();
+            }
+            // Create orange particles at impact
+            createParticles(pos.row, pos.col, "#FF6600", true);
+          } else if (bubble.isWild) {
+            // Burbuja comodín de Whitey: se convierte en el color con el que colisiona y elimina ese grupo
+            let targetColor = null;
+
+            // Buscar color adyacente para convertirse en ese color
+            const neighbors = [
+              { row: pos.row - 1, col: pos.col },
+              { row: pos.row + 1, col: pos.col },
+              { row: pos.row, col: pos.col - 1 },
+              { row: pos.row, col: pos.col + 1 },
+              { row: pos.row - 1, col: isOddRow ? pos.col + 1 : pos.col - 1 },
+              { row: pos.row + 1, col: isOddRow ? pos.col + 1 : pos.col - 1 },
+            ];
+
+            for (let n of neighbors) {
+              if (
+                n.row >= 0 &&
+                n.row < GRID_HEIGHT &&
+                n.col >= 0 &&
+                n.col < (n.row % 2 === 1 ? GRID_WIDTH - 1 : GRID_WIDTH) &&
+                grid[n.row][n.col]
+              ) {
+                targetColor = grid[n.row][n.col];
+                break;
+              }
+            }
+
+            if (targetColor) {
+              // Colocar la burbuja con el color objetivo
+              grid[pos.row][pos.col] = targetColor;
+
+              // Buscar todas las burbujas conectadas del mismo color
+              const matches = checkMatches(pos.row, pos.col);
+
+              // Eliminar todas las burbujas conectadas del mismo color (sin mínimo de 3)
+              if (matches.length > 0) {
+                matches.forEach(({ row, col }) => {
+                  createParticles(row, col, grid[row][col]);
+                  grid[row][col] = null;
+                });
+                removeFloatingBubbles();
+              }
+            } else {
+              // Si no hay color objetivo, colocar la burbuja normalmente
+              grid[pos.row][pos.col] = bubble.color;
+            }
+
+            // Crear partículas especiales en el punto de impacto
+            createParticles(pos.row, pos.col, "#FFFFFF", true);
+          } else {
+            // Normal bubble
+            grid[pos.row][pos.col] = bubble.color;
+            checkAndRemoveMatches(pos.row, pos.col);
+          }
+
+          if (window.FarcadeSDK) {
+            window.FarcadeSDK.singlePlayer.actions.hapticFeedback();
+          }
+          currentBubble = null;
+
+          // Check if ceiling should drop
+          const shotsPerCeilingDrop = Math.max(
+            4, // Mínimo de 4 disparos (reducido de 5 para mayor dificultad)
+            BASE_SHOTS_PER_CEILING_DROP - Math.floor(currentLevel / 2.5) // Cada 2.5 niveles (más rápido que cada 3)
+          );
+          if (shotCount >= shotsPerCeilingDrop) {
+            lowerCeiling();
+            shotCount = 0;
+          }
+
+          if (isGridEmpty()) {
+            const timeElapsed = (performance.now() - levelStartTime) / 1000; // In seconds
+            const levelScore = BASE_SCORE_PER_LEVEL * currentLevel;
+            const timeBonus = Math.max(
+              0,
+              MAX_TIME_BONUS - timeElapsed * TIME_BONUS_DECREASE
+            );
+            totalScore += Math.floor(levelScore + timeBonus);
+            currentLevel++;
+            abilityAvailable = true; // Reset habilidad para el nuevo nivel
+            whiteyWildShotsLeft = 0; // Reset disparos comodín de Whitey
+            grid = Array(GRID_HEIGHT)
+              .fill()
+              .map(() => Array(GRID_WIDTH).fill(null));
+            const usedColors = new Set();
+            const initialRows = Math.min(
+              6 + Math.floor((currentLevel - 1) / 2),
+              GRID_HEIGHT - 2
+            );
+            for (let row = 0; row < initialRows; row++) {
+              const isOddRow = row % 2 === 1;
+              const numBubbles = isOddRow ? 7 : 8;
+              for (let col = 0; col < numBubbles; col++) {
+                const color =
+                  ALL_COLORS[Math.floor(Math.random() * ALL_COLORS.length)];
+                grid[row][col] = color;
+                usedColors.add(color);
+              }
+            }
+            COLORS = Array.from(usedColors);
+            nextBubbles = [getRandomColor(), getExistingColor()];
+            spawnBubble();
+            shotCount = 0; // Reset shot counter
+            ceilingOffset = 0; // Reset ceiling offset
+            // Set background for new level
+            gameContainer.style.backgroundImage = `url("${getLevelBackground(
+              currentLevel
+            )}")`;
+            showLevelScreen();
+            updateUI();
+          } else {
+            spawnBubble();
+          }
+        } catch (error) {
+          console.error("Snap bubble error:", error);
+        }
+      }
+
+      // Check if grid is empty
+      function isGridEmpty() {
+        try {
+          for (let row = 0; row < GRID_HEIGHT; row++) {
+            for (let col = 0; col < GRID_WIDTH; col++) {
+              if (grid[row][col]) return false;
+            }
+          }
+          return true;
+        } catch (error) {
+          console.error("Grid empty check error:", error);
+          return false;
+        }
+      }
+
+      // Grid position calculations
+      function getGridPos(x, y) {
+        try {
+          const row = Math.floor(
+            (y - ceilingOffset) / ((BUBBLE_SIZE * Math.sqrt(3)) / 2)
+          );
+          const isOddRow = row % 2 === 1;
+          const colOffset = isOddRow ? BUBBLE_SIZE / 2 : 0;
+          const col = Math.floor((x - colOffset) / BUBBLE_SIZE);
+          return {
+            row: Math.max(0, Math.min(GRID_HEIGHT - 1, row)),
+            col: Math.max(
+              0,
+              Math.min(isOddRow ? GRID_WIDTH - 1 : GRID_WIDTH - 1, col)
+            ),
+          };
+        } catch (error) {
+          console.error("Get grid pos error:", error);
+          return { row: 0, col: 0 };
+        }
+      }
+
+      // Shooting mechanics
+      function shootBubble() {
+        try {
+          if (currentBubble && !currentBubble.moving && canShoot) {
+            currentBubble.velocity = {
+              x: Math.cos(launcherAngle) * 10,
+              y: -Math.sin(launcherAngle) * 10,
+            };
+            currentBubble.moving = true;
+            canShoot = false;
+            shotCount++; // Increment shot counter
+
+            // Periodic fun message every X shots (avoid overlap with existing bubble)
+            const nowTs = performance.now();
+            const canShowPeriodic =
+              !speechBubble ||
+              speechBubble.opacity < 0.1 ||
+              speechBubble.duration < 500;
+            if (
+              canShowPeriodic &&
+              shotCount % PERIODIC_SHOT_MESSAGE_EVERY === 0 &&
+              nowTs - lastPeriodicMessageAt > 1200
+            ) {
+              const msg =
+                periodicShotMessages[
+                  Math.floor(Math.random() * periodicShotMessages.length)
+                ];
+              speechBubble = {
+                text: msg,
+                duration: SPEECH_BUBBLE_DURATION,
+                opacity: 0,
+              };
+              attackAnimUntil = performance.now() + 600; // Animación de ataque cuando aparece mensaje
+              lastPeriodicMessageAt = nowTs;
+            }
+            if (window.FarcadeSDK) {
+              window.FarcadeSDK.singlePlayer.actions.hapticFeedback();
+            }
+          }
+        } catch (error) {
+          console.error("Shoot bubble error:", error);
+        }
+      }
+
+      // Activate ability
+      function activateAbility() {
+        try {
+          if (abilityAvailable && gameStarted && !gameOver && currentBubble) {
+            if (selectedCharacter === "Pinky") {
+              // Pinky: elimina todas las bolas de un color (usa burbuja especial naranja)
+              currentBubble.color = "#FF6600"; // Color naranja para Pinky
+              currentBubble.isSpecial = true;
+              currentBubble.isWild = false;
+              abilityAvailable = false; // Una vez por nivel
+              attackAnimUntil = performance.now() + 600;
+              speechBubble = {
+                text: "Color Blast!",
+                duration: SPEECH_BUBBLE_DURATION,
+                opacity: 0,
+              };
+            } else if (selectedCharacter === "Bluey") {
+              // Bluey: Bomb Shot - disparo que explota en área grande
+              currentBubble.color = "#000000"; // Color negro para bomba
+              currentBubble.isBomb = true;
+              currentBubble.isSpecial = false; // No marcar como especial para evitar conflicto
+              abilityAvailable = false; // Una vez por nivel
+              attackAnimUntil = performance.now() + 600;
+              speechBubble = {
+                text: "Bomb Shot!",
+                duration: SPEECH_BUBBLE_DURATION,
+                opacity: 0,
+              };
+            } else if (selectedCharacter === "Whitey") {
+              // Whitey: Color Pick - convierte las próximas 3 esferas en comodines especiales
+              whiteyWildShotsLeft = 3;
+
+              // Convertir la esfera actual en comodín si existe
+              if (currentBubble) {
+                currentBubble.isWild = true;
+                currentBubble.color = "#FFFFFF"; // Blanco brillante
+              }
+
+              // Convertir las próximas 2 esferas en comodines
+              for (let i = 0; i < Math.min(2, nextBubbles.length); i++) {
+                nextBubbles[i] = "#FFFFFF"; // Color blanco especial
+              }
+
+              abilityAvailable = false; // Una vez por nivel
+              attackAnimUntil = performance.now() + 600;
+              speechBubble = {
+                text: "Color Pick!",
+                duration: SPEECH_BUBBLE_DURATION,
+                opacity: 0,
+              };
+            }
+
+            if (window.FarcadeSDK) {
+              window.FarcadeSDK.singlePlayer.actions.hapticFeedback();
+            }
+          }
+        } catch (error) {
+          console.error("Activate ability error:", error);
+        }
+      }
+
+      // Create particles (modified for neon effect)
+      function createParticles(row, col, color, isNeon = false) {
+        try {
+          const particleCount = isNeon ? 15 : isMobile ? 5 : 10;
+          const offset = row % 2 === 1 ? BUBBLE_SIZE / 2 : 0;
+          for (let i = 0; i < particleCount; i++) {
+            particles.push({
+              x: col * BUBBLE_SIZE + offset + BUBBLE_SIZE / 2,
+              y: row * ((BUBBLE_SIZE * Math.sqrt(3)) / 2) + ceilingOffset,
+              vx: (Math.random() - 0.5) * (isNeon ? 8 : 6),
+              vy: (Math.random() - 0.5) * (isNeon ? 8 : 6),
+              size: Math.random() * (isNeon ? 8 : 6) + (isNeon ? 4 : 2),
+              color: color,
+              life: isNeon ? 40 : 30,
+            });
+          }
+          if (particles.length > 100) {
+            particles = particles.slice(-100);
+          }
+        } catch (error) {
+          console.error("Create particles error:", error);
+        }
+      }
+
+      // Find nearest empty spot
+      function findNearestEmptySpot(row, col, bubble) {
+        try {
+          const candidates = [];
+          const bubbleX = bubble.x;
+          const bubbleY = bubble.y - ceilingOffset; // Adjust for ceiling offset
+
+          for (
+            let r = Math.max(0, row - 1);
+            r <= Math.min(GRID_HEIGHT - 1, row + 1);
+            r++
+          ) {
+            const rMaxCols = r % 2 === 1 ? GRID_WIDTH - 1 : GRID_WIDTH;
+            for (let c = 0; c < rMaxCols; c++) {
+              if (!grid[r][c] && (r === 0 || hasAdjacentBubble(r, c))) {
+                const offset = r % 2 === 1 ? BUBBLE_SIZE / 2 : 0;
+                const nx = c * BUBBLE_SIZE + offset + BUBBLE_SIZE / 2;
+                const ny =
+                  r * ((BUBBLE_SIZE * Math.sqrt(3)) / 2) + BUBBLE_SIZE / 2;
+                const dist = Math.hypot(nx - bubbleX, ny - bubbleY);
+                candidates.push({ row: r, col: c, dist });
+              }
+            }
+          }
+
+          if (candidates.length === 0) return null;
+
+          candidates.sort((a, b) => {
+            if (Math.abs(a.dist - b.dist) < 0.01) {
+              return Math.random() < 0.5 ? -1 : 1;
+            }
+            return a.dist - b.dist;
+          });
+
+          return candidates[0];
+        } catch (error) {
+          console.error("Find empty spot error:", error);
+          return null;
+        }
+      }
+
+      // Check adjacent bubble
+      function hasAdjacentBubble(row, col) {
+        try {
+          const isOddRow = row % 2 === 1;
+          const maxCols = isOddRow ? GRID_WIDTH - 1 : GRID_WIDTH;
+          const neighbors = [
+            { row: row - 1, col: col },
+            { row: row + 1, col: col },
+            { row: row, col: col - 1 },
+            { row: row, col: col + 1 },
+            { row: row - 1, col: isOddRow ? col + 1 : col - 1 },
+            { row: row + 1, col: isOddRow ? col + 1 : col - 1 },
+          ];
+
+          for (let n of neighbors) {
+            if (
+              n.row >= 0 &&
+              n.row < GRID_HEIGHT &&
+              n.col >= 0 &&
+              n.col < (n.row % 2 === 1 ? GRID_WIDTH - 1 : GRID_WIDTH) &&
+              grid[n.row][n.col]
+            ) {
+              return true;
+            }
+          }
+          return false;
+        } catch (error) {
+          console.error("Has adjacent bubble error:", error);
+          return false;
+        }
+      }
+
+      // Check and remove matches
+      function checkAndRemoveMatches(row, col) {
+        try {
+          if (!grid[row][col]) return;
+          const matches = checkMatches(row, col);
+          if (matches.length >= 3) {
+            matches.forEach(({ row, col }) => {
+              createParticles(row, col, grid[row][col]);
+              grid[row][col] = null;
+            });
+            if (matches.length >= 8) {
+              // Show speech bubble for large matches
+              speechBubble = {
+                text: largeMatchMessages[
+                  Math.floor(Math.random() * largeMatchMessages.length)
+                ],
+                duration: SPEECH_BUBBLE_DURATION,
+                opacity: 0,
+              };
+              attackAnimUntil = performance.now() + 600; // Animación de ataque cuando aparece mensaje
+            }
+            if (window.FarcadeSDK) {
+              window.FarcadeSDK.singlePlayer.actions.hapticFeedback();
+            }
+            removeFloatingBubbles();
+          }
+        } catch (error) {
+          console.error("Check matches error:", error);
+        }
+      }
+
+      // Match checking
+      function checkMatches(row, col) {
+        try {
+          const color = grid[row][col];
+          const visited = new Set();
+          const toCheck = [{ row, col }];
+          const matches = [];
+
+          while (toCheck.length) {
+            const { row: r, col: c } = toCheck.pop();
+            const key = `${r},${c}`;
+            const isOddRow = r % 2 === 1;
+            if (
+              visited.has(key) ||
+              r < 0 ||
+              r >= GRID_HEIGHT ||
+              c < 0 ||
+              c >= GRID_WIDTH ||
+              grid[r] === undefined ||
+              grid[r][c] !== color
+            )
+              continue;
+
+            visited.add(key);
+            matches.push({ row: r, col: c });
+
+            const neighbors = [
+              { row: r - 1, col: c },
+              { row: r + 1, col: c },
+              { row: r, col: c - 1 },
+              { row: r, col: c + 1 },
+              { row: r - 1, col: isOddRow ? c + 1 : c - 1 },
+              { row: r + 1, col: isOddRow ? c + 1 : c - 1 },
+            ];
+            toCheck.push(...neighbors);
+          }
+          return matches;
+        } catch (error) {
+          console.error("Match checking error:", error);
+          return [];
+        }
+      }
+
+      // Remove floating bubbles
+      function removeFloatingBubbles() {
+        try {
+          const connected = new Set();
+          const toCheck = [];
+
+          // Start from bubbles in row 0 (connected to ceiling)
+          for (let col = 0; col < GRID_WIDTH; col++) {
+            if (grid[0][col]) {
+              toCheck.push({ row: 0, col });
+            }
+          }
+
+          // BFS to find all connected bubbles
+          while (toCheck.length > 0) {
+            const { row, col } = toCheck.shift();
+            const key = `${row},${col}`;
+            if (connected.has(key) || !grid[row][col]) continue;
+
+            connected.add(key);
+
+            const isOddRow = row % 2 === 1;
+            const neighbors = [
+              { row: row - 1, col: col }, // Up
+              { row: row + 1, col: col }, // Down
+              { row: row, col: col - 1 }, // Left
+              { row: row, col: col + 1 }, // Right
+              { row: row - 1, col: isOddRow ? col + 1 : col - 1 }, // Diagonal up
+              { row: row + 1, col: isOddRow ? col + 1 : col - 1 }, // Diagonal down
+            ];
+
+            for (let n of neighbors) {
+              if (
+                n.row >= 0 &&
+                n.row < GRID_HEIGHT &&
+                n.col >= 0 &&
+                n.col < (n.row % 2 === 1 ? GRID_WIDTH - 1 : GRID_WIDTH) &&
+                grid[n.row][n.col] &&
+                !connected.has(`${n.row},${n.col}`)
+              ) {
+                toCheck.push(n);
+              }
+            }
+          }
+
+          // Remove unconnected bubbles
+          let removed = false;
+          for (let row = 0; row < GRID_HEIGHT; row++) {
+            const maxCols = row % 2 === 1 ? GRID_WIDTH - 1 : GRID_WIDTH;
+            for (let col = 0; col < maxCols; col++) {
+              if (grid[row][col] && !connected.has(`${row},${col}`)) {
+                createParticles(row, col, grid[row][col]);
+                grid[row][col] = null;
+                removed = true;
+              }
+            }
+          }
+
+          // If bubbles were removed, check again for new floating bubbles
+          if (removed) {
+            removeFloatingBubbles();
+          }
+        } catch (error) {
+          console.error("Remove floating bubbles error:", error);
+        }
+      }
+
+      // Calculate trajectory
+      function calculateTrajectoryAndCollision() {
+        try {
+          const launcherX = canvas.width / 2;
+          const launcherY = canvas.height - 20;
+          let x = launcherX;
+          let y = launcherY;
+          let vx = Math.cos(launcherAngle) * 5;
+          let vy = -Math.sin(launcherAngle) * 5;
+          const points = [];
+          let collisionX, collisionY;
+
+          while (y > 0) {
+            points.push({ x, y });
+
+            x += vx;
+            y += vy;
+
+            if (x < BUBBLE_SIZE / 2 || x > canvas.width - BUBBLE_SIZE / 2) {
+              vx *= -1;
+              x = Math.max(
+                BUBBLE_SIZE / 2,
+                Math.min(canvas.width - BUBBLE_SIZE / 2, x)
+              );
+            }
+
+            const pos = getGridPos(x, y);
+            for (
+              let row = Math.max(0, pos.row - 1);
+              row <= Math.min(GRID_HEIGHT - 1, pos.row + 1);
+              row++
+            ) {
+              for (let col = 0; col < GRID_WIDTH; col++) {
+                if (grid[row][col]) {
+                  const offset = row % 2 === 1 ? BUBBLE_SIZE / 2 : 0;
+                  const bubbleX = col * BUBBLE_SIZE + offset + BUBBLE_SIZE / 2;
+                  const bubbleY =
+                    row * ((BUBBLE_SIZE * Math.sqrt(3)) / 2) +
+                    BUBBLE_SIZE / 2 +
+                    ceilingOffset;
+                  if (
+                    Math.hypot(x - bubbleX, y - bubbleY) <
+                    BUBBLE_SIZE * 0.9
+                  ) {
+                    collisionX = x;
+                    collisionY = y;
+                    points.push({ x: collisionX, y: collisionY });
+                    return { points, collisionX, collisionY };
+                  }
+                }
+              }
+            }
+
+            if (y < BUBBLE_SIZE / 2 + ceilingOffset) {
+              collisionX = x;
+              collisionY = y;
+              points.push({ x: collisionX, y: collisionY });
+              return { points, collisionX, collisionY };
+            }
+          }
+          collisionX = x;
+          collisionY = y;
+          points.push({ x: collisionX, y: collisionY });
+          return { points, collisionX, collisionY };
+        } catch (error) {
+          console.error("Calculate trajectory error:", error);
+          return { points: [], collisionX: 0, collisionY: 0 };
+        }
+      }
+
+      // Update game state
+      function update() {
+        try {
+          if (!gameStarted || gameOver) return;
+
+          if (currentBubble && currentBubble.moving) {
+            currentBubble.x += currentBubble.velocity.x;
+            currentBubble.y += currentBubble.velocity.y;
+
+            if (
+              currentBubble.x < BUBBLE_SIZE / 2 ||
+              currentBubble.x > canvas.width - BUBBLE_SIZE / 2
+            ) {
+              currentBubble.velocity.x *= -1;
+              currentBubble.x = Math.max(
+                BUBBLE_SIZE / 2,
+                Math.min(canvas.width - BUBBLE_SIZE / 2, currentBubble.x)
+              );
+            }
+
+            if (currentBubble.y < BUBBLE_SIZE / 2 + ceilingOffset) {
+              currentBubble.moving = false;
+              snapBubbleToGrid(currentBubble);
+              return;
+            }
+
+            const pos = getGridPos(currentBubble.x, currentBubble.y);
+            for (
+              let row = Math.max(0, pos.row - 1);
+              row <= Math.min(GRID_HEIGHT - 1, pos.row + 1);
+              row++
+            ) {
+              for (let col = 0; col < GRID_WIDTH; col++) {
+                if (grid[row][col]) {
+                  const offset = row % 2 === 1 ? BUBBLE_SIZE / 2 : 0;
+                  const bubbleX = col * BUBBLE_SIZE + offset + BUBBLE_SIZE / 2;
+                  const bubbleY =
+                    row * ((BUBBLE_SIZE * Math.sqrt(3)) / 2) +
+                    BUBBLE_SIZE / 2 +
+                    ceilingOffset;
+                  if (
+                    Math.hypot(
+                      currentBubble.x - bubbleX,
+                      currentBubble.y - bubbleY
+                    ) <
+                    BUBBLE_SIZE * 0.9
+                  ) {
+                    currentBubble.moving = false;
+                    snapBubbleToGrid(currentBubble);
+                    return;
+                  }
+                }
+              }
+            }
+          }
+
+          if (keysPressed.left) launcherAngle += 0.01;
+          if (keysPressed.right) launcherAngle -= 0.01;
+          launcherAngle = Math.max(
+            Math.PI / 2 - 1.4835,
+            Math.min(Math.PI / 2 + 1.4835, launcherAngle)
+          );
+
+          keyPressedThisFrame.left = false;
+          keyPressedThisFrame.right = false;
+
+          particles = particles.filter((p) => p?.life > 0);
+          particles.forEach((p) => {
+            if (p) {
+              p.x += p.vx;
+              p.y += p.vy;
+              p.vy += 0.1;
+              p.life--;
+              p.size *= 0.95;
+            }
+          });
+
+          // No need for ability cooldown anymore - skill is once per level
+
+          // Update speech bubble
+          if (speechBubble) {
+            speechBubble.duration -= 16; // Approx 60 FPS
+            // Fade-in (0 to 0.5s)
+            if (speechBubble.duration > SPEECH_BUBBLE_DURATION - 500) {
+              const progress =
+                (SPEECH_BUBBLE_DURATION - speechBubble.duration) / 500;
+              speechBubble.opacity = progress;
+            }
+            // Fade-out (1.5s to 2s)
+            else if (speechBubble.duration < 500) {
+              speechBubble.opacity = speechBubble.duration / 500;
+            } else {
+              speechBubble.opacity = 1;
+            }
+            if (speechBubble.duration <= 0) {
+              speechBubble = null;
+            }
+          }
+
+          updateUI();
+
+          // Check for game over considering ceilingOffset
+          for (let row = 0; row < GRID_HEIGHT; row++) {
+            for (let col = 0; col < GRID_WIDTH; col++) {
+              if (
+                grid[row][col] &&
+                row * ((BUBBLE_SIZE * Math.sqrt(3)) / 2) +
+                  BUBBLE_SIZE +
+                  ceilingOffset >=
+                  LIMIT_LINE_Y
+              ) {
+                gameOver = true;
+                if (window.FarcadeSDK) {
+                  window.FarcadeSDK.singlePlayer.actions.gameOver({
+                    score: Math.floor(totalScore),
+                  });
+                }
+                cleanupAudio();
+                return;
+              }
+            }
+          }
+        } catch (error) {
+          console.error("Update error:", error);
+        }
+      }
+
+      // Render game
+      function draw() {
+        try {
+          if (!ctx) return;
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+          if (gameStarted) {
+            // Draw dark ceiling area
+            ctx.beginPath();
+            ctx.rect(0, 0, canvas.width, ceilingOffset);
+            ctx.fillStyle = "rgba(20, 20, 20, 1)"; // Fully opaque dark color
+            ctx.fill();
+
+            for (let y = 0; y < GRID_HEIGHT; y++) {
+              for (let x = 0; x < GRID_WIDTH; x++) {
+                if (grid[y][x]) {
+                  const offset = y % 2 === 1 ? BUBBLE_SIZE / 2 : 0;
+                  const bubbleX = x * BUBBLE_SIZE + offset;
+                  const bubbleY =
+                    y * ((BUBBLE_SIZE * Math.sqrt(3)) / 2) + ceilingOffset;
+                  ctx.beginPath();
+                  ctx.arc(
+                    bubbleX + BUBBLE_SIZE / 2,
+                    bubbleY + BUBBLE_SIZE / 2,
+                    BUBBLE_SIZE / 2 - 2,
+                    0,
+                    Math.PI * 2
+                  );
+                  ctx.fillStyle = grid[y][x];
+                  ctx.fill();
+                  ctx.strokeStyle = "#fff";
+                  ctx.lineWidth = 2;
+                  ctx.stroke();
+                }
+              }
+            }
+
+            if (currentBubble) {
+              ctx.beginPath();
+              ctx.arc(
+                currentBubble.x,
+                currentBubble.y,
+                BUBBLE_SIZE / 2 - 2,
+                0,
+                Math.PI * 2
+              );
+              if (currentBubble.isBomb) {
+                // Burbuja bomba negra con aura roja
+                ctx.fillStyle = "#000000";
+
+                // Agregar aura roja pulsante
+                ctx.shadowColor = "#FF0000";
+                ctx.shadowBlur = 20 + Math.sin(performance.now() / 150) * 8;
+              } else if (
+                currentBubble.isSpecial &&
+                currentBubble.color === "#FF6600"
+              ) {
+                // Burbuja especial de Pinky naranja con aura naranja
+                ctx.fillStyle = "#FF6600";
+
+                // Agregar aura naranja pulsante
+                ctx.shadowColor = "#FF6600";
+                ctx.shadowBlur = 18 + Math.sin(performance.now() / 180) * 6;
+              } else if (currentBubble.isWild) {
+                if (currentBubble.color === "#FFFFFF") {
+                  // Burbuja comodín blanca con brillo especial
+                  const gradient = ctx.createRadialGradient(
+                    currentBubble.x,
+                    currentBubble.y,
+                    0,
+                    currentBubble.x,
+                    currentBubble.y,
+                    BUBBLE_SIZE / 2
+                  );
+                  gradient.addColorStop(0, "#FFFFFF");
+                  gradient.addColorStop(0.7, "#E0E0E0");
+                  gradient.addColorStop(1, "#C0C0C0");
+                  ctx.fillStyle = gradient;
+
+                  // Agregar efecto de brillo pulsante
+                  ctx.shadowColor = "#FFFFFF";
+                  ctx.shadowBlur = 15 + Math.sin(performance.now() / 200) * 5;
+                } else {
+                  // Cycle colors for wild bubble
+                  const colorIndex =
+                    Math.floor(performance.now() / 200) % ALL_COLORS.length;
+                  ctx.fillStyle = ALL_COLORS[colorIndex];
+                }
+              } else {
+                ctx.fillStyle = currentBubble.color;
+              }
+              ctx.fill();
+
+              // Resetear shadow para no afectar otros elementos
+              ctx.shadowColor = "transparent";
+              ctx.shadowBlur = 0;
+              ctx.strokeStyle = "#fff";
+              ctx.stroke();
+            }
+
+            const launcherX = canvas.width / 2;
+            const launcherY = canvas.height - 20;
+            const circleRadius = isMobile ? 30 : 40;
+            const arrowLength = isMobile ? 60 : 80;
+
+            ctx.beginPath();
+            ctx.arc(launcherX, launcherY, circleRadius, 0, Math.PI * 2);
+            ctx.strokeStyle = "#ff0066";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            const arrowStartX = launcherX;
+            const arrowStartY = launcherY;
+            const arrowEndX =
+              arrowStartX + Math.cos(launcherAngle) * arrowLength;
+            const arrowEndY =
+              arrowStartY - Math.sin(launcherAngle) * arrowLength;
+
+            ctx.beginPath();
+            ctx.moveTo(arrowStartX, arrowStartY);
+            ctx.lineTo(arrowEndX, arrowEndY);
+            ctx.strokeStyle = "#ff0066";
+            ctx.lineWidth = 4;
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(arrowEndX, arrowEndY);
+            ctx.lineTo(
+              arrowEndX - Math.cos(launcherAngle + Math.PI / 6) * 15,
+              arrowEndY + Math.sin(launcherAngle + Math.PI / 6) * 15
+            );
+            ctx.moveTo(arrowEndX, arrowEndY);
+            ctx.lineTo(
+              arrowEndX - Math.cos(launcherAngle - Math.PI / 6) * 15,
+              arrowEndY + Math.sin(launcherAngle - Math.PI / 6) * 15
+            );
+            ctx.stroke();
+
+            if (currentBubble && !currentBubble.moving) {
+              const { points, collisionX, collisionY } =
+                calculateTrajectoryAndCollision();
+              points.forEach((point, i) => {
+                if (i % 4 === 0) {
+                  ctx.beginPath();
+                  ctx.arc(point.x, point.y, 2, 0, Math.PI * 2);
+                  ctx.fillStyle = "#00ffcc";
+                  ctx.fill();
+                }
+              });
+              ctx.beginPath();
+              ctx.arc(collisionX, collisionY, 4, 0, Math.PI * 2);
+              ctx.fillStyle = "#ff0066";
+              ctx.fill();
+            }
+
+            particles.forEach((p) => {
+              if (p) {
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fillStyle = p.color;
+                ctx.fill();
+              }
+            });
+
+            ctx.beginPath();
+            ctx.moveTo(0, LIMIT_LINE_Y);
+            ctx.lineTo(canvas.width, LIMIT_LINE_Y);
+            ctx.strokeStyle = "#ff0066";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Draw selected character sprite (idle/attack 4x 32x32) con tolerancia
+            if (selectedCharacter) {
+              const sprPack = characterSprites[selectedCharacter];
+              const now = performance.now();
+              const useAttack =
+                now < attackAnimUntil && sprPack?.attack?.loaded;
+              const sprObj = useAttack ? sprPack?.attack : sprPack?.idle;
+              const sprite = sprObj?.img;
+              const w = 32,
+                h = 32,
+                frames = 4;
+              // Escalado en múltiplos enteros para pixel-perfect
+              const scale = Math.max(3, Math.floor((canvas.width / 500) * 4));
+              const destW = w * scale;
+              const destH = h * scale;
+              // Más a la izquierda y pegado al bottom
+              const marginLeft = Math.round(16 * (canvas.width / 500));
+              const marginBottom = Math.round(8 * (canvas.height / 900));
+              const destX = marginLeft;
+              const destY = canvas.height - destH - marginBottom;
+              if (sprite) {
+                if (sprite.width >= 128 && sprite.height >= 32) {
+                  if (!lastInGameTime) lastInGameTime = now;
+                  if (now - lastInGameTime >= INGAME_MS_PER_FRAME) {
+                    inGameFrame = (inGameFrame + 1) % frames;
+                    lastInGameTime = now;
+                  }
+                  ctx.drawImage(
+                    sprite,
+                    inGameFrame * w,
+                    0,
+                    w,
+                    h,
+                    destX,
+                    destY,
+                    destW,
+                    destH
+                  );
+                } else {
+                  // Imagen completa (placeholder)
+                  ctx.drawImage(sprite, destX, destY, destW, destH);
+                }
+              }
+            }
+
+            // Draw speech bubble (dynamic width, 1-2 lines, clamped to left edge)
+            if (speechBubble) {
+              // Base position: slightly above character area on the left
+              let boxX = 16 + 50;
+              const boxY = canvas.height - 32 * 4 - 22;
+
+              // Typography and layout (smaller text)
+              const paddingX = 12;
+              const paddingY = 8;
+              const minWidth = 140;
+              const maxWidth = 240;
+              const lineHeight = 18;
+              ctx.font = "16px 'Pixelify Sans', sans-serif";
+              ctx.textAlign = "left";
+              ctx.textBaseline = "middle";
+
+              // Word wrap to max 2 lines with ellipsis
+              const words = (speechBubble.text || "").split(/\s+/);
+              const lines = [];
+              let current = "";
+              const maxTextWidth = maxWidth - paddingX * 2;
+              for (let w of words) {
+                const test = current ? current + " " + w : w;
+                if (ctx.measureText(test).width <= maxTextWidth) {
+                  current = test;
+                } else {
+                  if (current) lines.push(current);
+                  current = w;
+                  if (lines.length >= 1) break;
+                }
+              }
+              if (current && lines.length < 2) lines.push(current);
+              if (lines.length === 2) {
+                while (ctx.measureText(lines[1] + "…").width > maxTextWidth) {
+                  lines[1] = lines[1].slice(0, -1);
+                  if (!lines[1]) break;
+                }
+                if (lines[1]) lines[1] += "…";
+              }
+
+              // Box dimensions
+              const textWidths = lines.map((l) => ctx.measureText(l).width);
+              const contentWidth = Math.max(...textWidths, 0);
+              const boxWidth = Math.max(
+                minWidth,
+                Math.min(maxWidth, contentWidth + paddingX * 2)
+              );
+              const boxHeight = paddingY * 2 + lines.length * lineHeight;
+              const half = boxWidth / 2;
+              const borderRadius = 8;
+
+              // Clamp horizontally (avoid cutting on the left)
+              const margin = 8;
+              if (boxX - half < margin) boxX = margin + half;
+              if (boxX + half > canvas.width - margin)
+                boxX = canvas.width - margin - half;
+
+              ctx.save();
+              ctx.globalAlpha = speechBubble.opacity;
+
+              // Rounded rect
+              ctx.beginPath();
+              ctx.moveTo(boxX - half + borderRadius, boxY - boxHeight / 2);
+              ctx.lineTo(boxX + half - borderRadius, boxY - boxHeight / 2);
+              ctx.arcTo(
+                boxX + half,
+                boxY - boxHeight / 2,
+                boxX + half,
+                boxY - boxHeight / 2 + borderRadius,
+                borderRadius
+              );
+              ctx.lineTo(boxX + half, boxY + boxHeight / 2 - borderRadius);
+              ctx.arcTo(
+                boxX + half,
+                boxY + boxHeight / 2,
+                boxX + half - borderRadius,
+                boxY + boxHeight / 2,
+                borderRadius
+              );
+              ctx.lineTo(boxX - half + borderRadius, boxY + boxHeight / 2);
+              ctx.arcTo(
+                boxX - half,
+                boxY + boxHeight / 2,
+                boxX - half,
+                boxY + boxHeight / 2 - borderRadius,
+                borderRadius
+              );
+              ctx.lineTo(boxX - half, boxY - boxHeight / 2 + borderRadius);
+              ctx.arcTo(
+                boxX - half,
+                boxY - boxHeight / 2,
+                boxX - half + borderRadius,
+                boxY - boxHeight / 2,
+                borderRadius
+              );
+              ctx.closePath();
+              ctx.fillStyle = "#ffffff";
+              ctx.fill();
+              ctx.strokeStyle = "#000000";
+              ctx.lineWidth = 2;
+              ctx.stroke();
+
+              // Text lines
+              ctx.fillStyle = "#000000";
+              const startX = boxX - half + paddingX;
+              const startY = boxY - (lines.length - 1) * (lineHeight / 2);
+              for (let i = 0; i < lines.length; i++) {
+                ctx.fillText(lines[i], startX, startY + i * lineHeight);
+              }
+              ctx.restore();
+            }
+
+            // Draw ability button (solo si el personaje tiene habilidad)
+            const charMeta = CHARACTERS.find((c) => c.id === selectedCharacter);
+            if (charMeta?.hasSkill) {
+              const buttonX = canvas.width * 0.75 - 25; // Between launcher and next-bubbles
+              const buttonY = (canvas.height + LIMIT_LINE_Y) / 2; // Halfway between bottom and game over line
+              const buttonRadius = 30;
+
+              // Botón estilo UI (sin neón), usando la paleta de botones
+              ctx.save();
+              ctx.shadowColor = "rgba(0,0,0,0.35)";
+              ctx.shadowBlur = 6;
+              ctx.beginPath();
+              ctx.arc(buttonX, buttonY, buttonRadius, 0, Math.PI * 2);
+              ctx.fillStyle = abilityAvailable ? "#ffd166" : "#cbbdc5"; // activo amarillo, inactivo grisado
+              ctx.fill();
+              ctx.strokeStyle = "#222";
+              ctx.lineWidth = 3;
+              ctx.stroke();
+              ctx.restore();
+
+              ctx.fillStyle = abilityAvailable ? "#2b2b2b" : "#2b2b2b";
+              ctx.font = "16px 'Pixelify Sans', sans-serif";
+              ctx.textAlign = "center";
+              ctx.textBaseline = "middle";
+              if (abilityAvailable) {
+                ctx.fillText("ON", buttonX, buttonY);
+              } else {
+                ctx.fillText("OFF", buttonX, buttonY);
+              }
+            }
+          }
+        } catch (error) {
+          console.error("Draw error:", error);
+        }
+      }
+
+      // Update UI
+      function updateUI() {
+        try {
+          if (scoreDisplay)
+            scoreDisplay.textContent = `Score: ${Math.floor(totalScore)}`;
+          if (levelDisplay) levelDisplay.textContent = `Level: ${currentLevel}`;
+          if (timeDisplay && gameStarted) {
+            const timeElapsed = Math.floor(
+              (performance.now() - levelStartTime) / 1000
+            );
+            timeDisplay.textContent = `Time: ${timeElapsed}s`;
+          }
+          if (instructions) {
+            instructions.textContent = isMobile
+              ? "Drag to aim and release to shoot. Tap the button to activate your Skill."
+              : "Use Left/Right Arrow to aim, Space to shoot, and E to activate your Skill.";
+          }
+          if (next1) {
+            if (nextBubbles[0] === "#FFFFFF") {
+              // Efecto especial para burbujas comodín blancas
+              next1.style.backgroundColor = "#FFFFFF";
+              next1.style.boxShadow =
+                "0 0 15px #FFFFFF, inset 0 0 10px rgba(255,255,255,0.8)";
+              next1.style.animation = "pulse 1s ease-in-out infinite";
+            } else {
+              next1.style.backgroundColor = nextBubbles[0] || "#ffffff";
+              next1.style.boxShadow = "";
+              next1.style.animation = "";
+            }
+          }
+          if (next2) {
+            if (nextBubbles[1] === "#FFFFFF") {
+              // Efecto especial para burbujas comodín blancas
+              next2.style.backgroundColor = "#FFFFFF";
+              next2.style.boxShadow =
+                "0 0 15px #FFFFFF, inset 0 0 10px rgba(255,255,255,0.8)";
+              next2.style.animation = "pulse 1s ease-in-out infinite";
+            } else {
+              next2.style.backgroundColor = nextBubbles[1] || "#ffffff";
+              next2.style.boxShadow = "";
+              next2.style.animation = "";
+            }
+          }
+        } catch (error) {
+          console.error("Update UI error:", error);
+        }
+      }
+
+      // Game loop
+      function gameLoop() {
+        try {
+          update();
+          draw();
+          requestAnimationFrame(gameLoop);
+        } catch (error) {
+          console.error("Game loop error:", error);
+        }
+      }
+
+      // Unified input handling
+      function handleInputStart(x, y, isTouch = false) {
+        try {
+          if (gameStarted && !gameOver) {
+            // Check if ability button was clicked (solo si el personaje tiene habilidad)
+            const charMeta = CHARACTERS.find((c) => c.id === selectedCharacter);
+            if (charMeta?.hasSkill) {
+              const buttonX = canvas.width * 0.75 - 25;
+              const buttonY = (canvas.height + LIMIT_LINE_Y) / 2;
+              const buttonRadius = 30;
+              if (
+                Math.hypot(x - buttonX, y - buttonY) < buttonRadius &&
+                abilityAvailable
+              ) {
+                activateAbility();
+                return;
+              }
+            }
+
+            // Normal shooting input
+            touchStartX = x;
+            if (isTouch) initAudioContext();
+          }
+        } catch (error) {
+          console.error("Input start error:", error);
+        }
+      }
+
+      function handleInputMove(x) {
+        try {
+          if (gameStarted && !gameOver && touchStartX !== null) {
+            const deltaX = x - touchStartX;
+            launcherAngle -= deltaX * (isMobile ? 0.006 : 0.005); // Increased from 0.003 to 0.006 for mobile
+            launcherAngle = Math.max(
+              Math.PI / 2 - 1.4835,
+              Math.min(Math.PI / 2 + 1.4835, launcherAngle)
+            );
+            touchStartX = x;
+          }
+        } catch (error) {
+          console.error("Input move error:", error);
+        }
+      }
+
+      function handleInputEnd() {
+        try {
+          if (gameStarted && !gameOver && touchStartX !== null) {
+            shootBubble();
+            touchStartX = null;
+          }
+        } catch (error) {
+          console.error("Input end error:", error);
+        }
+      }
+
+      // Event listeners
+      if (canvas) {
+        canvas.addEventListener(
+          "touchstart",
+          (e) => {
+            e.preventDefault();
+            if (e.touches[0]) {
+              const rect = canvas.getBoundingClientRect();
+              const scaleX = canvas.width / rect.width;
+              const scaleY = canvas.height / rect.height;
+              handleInputStart(
+                (e.touches[0].clientX - rect.left) * scaleX,
+                (e.touches[0].clientY - rect.top) * scaleY,
+                true
+              );
+            }
+          },
+          { passive: false }
+        );
+
+        canvas.addEventListener(
+          "touchmove",
+          (e) => {
+            e.preventDefault();
+            if (e.touches[0]) {
+              const rect = canvas.getBoundingClientRect();
+              const scaleX = canvas.width / rect.width;
+              handleInputMove((e.touches[0].clientX - rect.left) * scaleX);
+            }
+          },
+          { passive: false }
+        );
+
+        canvas.addEventListener(
+          "touchend",
+          (e) => {
+            e.preventDefault();
+            handleInputEnd();
+          },
+          { passive: false }
+        );
+
+        canvas.addEventListener("mousedown", (e) => {
+          e.preventDefault();
+          const rect = canvas.getBoundingClientRect();
+          const scaleX = canvas.width / rect.width;
+          const scaleY = canvas.height / rect.height;
+          handleInputStart(
+            (e.clientX - rect.left) * scaleX,
+            (e.clientY - rect.top) * scaleY
+          );
+        });
+
+        canvas.addEventListener("mousemove", (e) => {
+          if (touchStartX !== null) {
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            handleInputMove((e.clientX - rect.left) * scaleX);
+          }
+        });
+
+        canvas.addEventListener("mouseup", (e) => {
+          e.preventDefault();
+          handleInputEnd();
+        });
+
+        canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+      }
+
+      // Keyboard input
+      document.addEventListener("keydown", (e) => {
+        try {
+          if (gameStarted && !gameOver) {
+            if (
+              (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") &&
+              !keysPressed.left
+            ) {
+              keysPressed.left = true;
+              keyPressedThisFrame.left = true;
+              launcherAngle += 0.002;
+            }
+            if (
+              (e.key === "ArrowRight" || e.key === "d" || e.key === "D") &&
+              !keysPressed.right
+            ) {
+              keysPressed.right = true;
+              keyPressedThisFrame.right = true;
+              launcherAngle -= 0.002;
+            }
+            if (e.key === " " || e.key === "w" || e.key === "W") {
+              e.preventDefault();
+              shootBubble();
+            }
+            if (e.key === "e" || e.key === "E") {
+              const charMeta = CHARACTERS.find(
+                (c) => c.id === selectedCharacter
+              );
+              if (charMeta?.hasSkill && abilityAvailable) {
+                activateAbility();
+              }
+            }
+            launcherAngle = Math.max(
+              Math.PI / 2 - 1.4835,
+              Math.min(Math.PI / 2 + 1.4835, launcherAngle)
+            );
+          }
+        } catch (error) {
+          console.error("Keydown error:", error);
+        }
+      });
+
+      document.addEventListener("keyup", (e) => {
+        try {
+          if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A")
+            keysPressed.left = false;
+          if (e.key === "ArrowRight" || e.key === "d" || e.key === "D")
+            keysPressed.right = false;
+        } catch (error) {
+          console.error("Keyup error:", error);
+        }
+      });
+
+      // Start button
+      const startButton = document.getElementById("start-btn");
+      if (startButton) {
+        startButton.addEventListener("click", () => {
+          try {
+            if (startScreen) startScreen.style.display = "none";
+            if (characterSelectScreen)
+              characterSelectScreen.style.display = "flex";
+            // ocultar header y nexts durante selección
+            if (headerEl) headerEl.style.display = "none";
+            const nextBubblesEl = document.getElementById("next-bubbles");
+            if (nextBubblesEl) nextBubblesEl.style.display = "none";
+            // ocultar canvas durante selección y mostrar fondo oscuro
+            if (canvas) canvas.style.display = "none";
+            const backdrop = document.getElementById("selection-backdrop");
+            if (backdrop) backdrop.style.display = "block";
+          } catch (error) {
+            console.error("Start button error:", error);
+          }
+        });
+      }
+
+      // Character selection (nueva UI de tarjeta + flechas)
+      const btnPrev = document.getElementById("char-prev");
+      const btnNext = document.getElementById("char-next");
+      const btnSelect = document.getElementById("char-select-btn");
+      if (btnPrev) {
+        btnPrev.addEventListener("click", () => {
+          try {
+            charIndex = (charIndex - 1 + CHARACTERS.length) % CHARACTERS.length;
+            updateCharCard();
+          } catch (e) {
+            console.error("Char prev error:", e);
+          }
+        });
+      }
+      if (btnNext) {
+        btnNext.addEventListener("click", () => {
+          try {
+            charIndex = (charIndex + 1) % CHARACTERS.length;
+            updateCharCard();
+          } catch (e) {
+            console.error("Char next error:", e);
+          }
+        });
+      }
+      if (btnSelect) {
+        btnSelect.addEventListener("click", () => {
+          try {
+            const chosen = CHARACTERS[charIndex];
+            selectedCharacter = chosen.id;
+            abilityAvailable = true; // reset para nuevo nivel
+            stopPreview();
+            init();
+            initAudioContext();
+            // al iniciar juego, mostrar header y nexts
+            if (headerEl) headerEl.style.display = "flex";
+            const nextBubblesEl = document.getElementById("next-bubbles");
+            if (nextBubblesEl) nextBubblesEl.style.display = "flex";
+            // mostrar canvas y ocultar backdrop
+            if (canvas) canvas.style.display = "block";
+            const backdrop = document.getElementById("selection-backdrop");
+            if (backdrop) backdrop.style.display = "none";
+          } catch (e) {
+            console.error("Char select error:", e);
+          }
+        });
+      }
+
+      // Music track switch on end
+      if (bgm) {
+        bgm.addEventListener("ended", () => {
+          nextTrack();
+        });
+      }
+
+      // Farcade SDK
+      if (window.FarcadeSDK) {
+        window.FarcadeSDK.on("play_again", () => {
+          try {
+            // Show start screen on play again
+            if (startScreen) {
+              startScreen.style.display = "flex";
+            }
+            if (characterSelectScreen) {
+              characterSelectScreen.style.display = "none";
+            }
+            selectedCharacter = null;
+            gameStarted = false;
+            gameOver = false;
+            // Restore start screen background
+            gameContainer.style.backgroundImage = `url("${startScreenBackground}")`;
+            // Reiniciar preview al volver al inicio
+            startPreview();
+          } catch (error) {
+            console.error("Play again error:", error);
+          }
+        });
+
+        window.FarcadeSDK.on("toggle_mute", (data) => {
+          try {
+            isMuted = data?.isMuted || false;
+            if (bgm) bgm.muted = isMuted;
+          } catch (error) {
+            console.error("Toggle mute error:", error);
+          }
+        });
+      }
+
+      // Cleanup
+      window.addEventListener("unload", () => {
+        cleanupAudio();
+      });
+
+      // Set initial start screen background
+      gameContainer.style.backgroundImage = `url("${startScreenBackground}")`;
+      updateUI();
+      startPreview();
+      gameLoop();
+    </script>
+  </body>
+</html>

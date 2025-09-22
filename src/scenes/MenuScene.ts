@@ -113,7 +113,7 @@ export class MenuScene extends Phaser.Scene {
     this.instructionsText = this.add.text(
       GameSettings.canvas.width / 2,
       instructionsY,
-      "Survive as long as you can\nMove around and choose your weapon wisely",
+      "Survive as long as you can\nMove around and choose your weapon wisely\nEach weapon has its purpose\nDeath is lurking",
       {
         fontFamily: '"Pixelify Sans", monospace, Arial',
         fontSize: "22px", // Aumentado de 18px a 22px
@@ -170,12 +170,19 @@ export class MenuScene extends Phaser.Scene {
       this.musicTracks.push(sound);
     });
 
-    // Start playing the first track
+    // Randomize starting track index to alternate songs each game load
+    this.currentMusicIndex = Math.floor(
+      Math.random() * this.musicTracks.length
+    );
+
+    // Start playing the randomly selected track
     this.playNextTrack();
 
     if (GameSettings.debug) {
       console.log(
-        `🎵 Music system initialized in MenuScene with ${this.musicTracks.length} tracks`
+        `🎵 Music system initialized in MenuScene with ${
+          this.musicTracks.length
+        } tracks, starting with track ${this.currentMusicIndex + 1}`
       );
     }
   }

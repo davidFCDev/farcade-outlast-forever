@@ -17,24 +17,12 @@ export class PreloadScene extends Phaser.Scene {
       "https://ajax.googleapis.com/ajax/libs/webfont/1.6.26/webfont.js"
     );
 
-    // Load the loader sprite (18 frames animation)
-    this.load.spritesheet("loader-sprite", this.config.sprite.url, {
-      frameWidth: this.config.sprite.frameWidth,
-      frameHeight: this.config.sprite.frameHeight,
-    });
+    // Note: We don't load the loader sprite through Phaser anymore
+    // Instead we'll load it manually as an Image in the canvas animation (like test.html)
 
-        // ========== PRELOAD ALL GAME ASSETS HERE ==========
-    // Load the tilemap from external URL (will be configured)
-    this.load.tilemapTiledJSON(
-      GameSettings.tilemap.key,
-      GameSettings.tilemap.jsonUrl || GameSettings.tilemap.jsonPath
-    );
-    // Create a data URI for the embedded tilemap JSON
-    const tilemapDataURI =
-      "data:application/json;base64," + btoa(JSON.stringify(ZOMBIE_MAP_DATA));
-
-    // Load the tilemap from data URI
-    this.load.tilemapTiledJSON(GameSettings.tilemap.key, tilemapDataURI);
+    // ========== PRELOAD ALL GAME ASSETS HERE ==========
+    // Try to load tilemap with fallback strategy
+    this.loadTilemapWithFallback();
 
     // Load the tileset image
     this.load.image(
@@ -58,8 +46,11 @@ export class PreloadScene extends Phaser.Scene {
   }
 
   create(): void {
-    // Set black background
+    // Set black background immediately for mobile compatibility
     this.cameras.main.setBackgroundColor(this.config.colors.background);
+
+    // Show loading indicator immediately to avoid gray screen
+    this.showImmediateLoadingIndicator();
 
     // Load Pixelify font and wait for it to load
     if ((window as any).WebFont) {
@@ -83,39 +74,216 @@ export class PreloadScene extends Phaser.Scene {
   }
 
   private createGameContent(): void {
-    // Create loader sprite animation
-    this.createLoaderAnimation();
+    // Use the same approach as test.html - create a manual canvas-based loader
+    this.createCanvasLoader();
 
-    // Create brand text (initially hidden)
-    this.createBrandText();
-
-    // Start the loader animation
-    this.startLoaderAnimation();
+    // Start the manual loader animation
+    this.startCanvasLoaderAnimation();
   }
 
-  private createLoaderAnimation(): void {
-    // Create the loader sprite
+  private createCanvasLoader(): void {
+    // Clean up temporary loading elements if they exist
+    if ((this as any).tempLoadingText) {
+      (this as any).tempLoadingText.destroy();
+    }
+    if ((this as any).tempLoaderCircle) {
+      (this as any).tempLoaderCircle.destroy();
+    }
+
+    // Create a DOM canvas element for manual sprite animation (like test.html)
     const centerX = GameSettings.canvas.width / 2;
     const centerY = GameSettings.canvas.height / 2 - 100;
 
-    this.loaderSprite = this.add.sprite(centerX, centerY, "loader-sprite", 0);
-    this.loaderSprite.setOrigin(0.5);
-    // Scale the sprite to match the original HTML size
-    this.loaderSprite.setScale(this.config.sprite.scale);
+    // Get the Phaser game canvas element
+    const gameCanvas = this.sys.game.canvas;
+    const gameContainer = gameCanvas.parentElement;
 
-    // Create animation frames
-    const frames = [];
-    for (let i = 0; i < this.config.animation.frames; i++) {
-      frames.push({ key: "loader-sprite", frame: i });
+    // Create overlay div
+    const overlay = document.createElement("div");
+    overlay.id = "loader-overlay";
+    overlay.style.cssText = `
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #000000;
+      z-index: 9999;
+      pointer-events: all;
+    `;
+
+    // Create loader content container
+    const loaderContent = document.createElement("div");
+    loaderContent.style.cssText = `
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      width: 100%;
+    `;
+
+    // Create canvas for manual sprite animation
+    const canvas = document.createElement("canvas");
+    canvas.id = "loader-canvas";
+    canvas.width = this.config.sprite.frameWidth;
+    canvas.height = this.config.sprite.frameHeight;
+
+    // Use a more reasonable scale for mobile (similar to test.html)
+    const mobileScale = 0.8; // Much smaller than the original 1.5
+    canvas.style.cssText = `
+      width: ${this.config.sprite.frameWidth * mobileScale}px;
+      height: ${this.config.sprite.frameHeight * mobileScale}px;
+      image-rendering: pixelated;
+      transform-origin: center;
+      background: transparent;
+      display: block;
+    `;
+
+    // Create studio text element (like test.html)
+    const studioText = document.createElement("div");
+    studioText.id = "studio-text";
+    studioText.style.cssText = `
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: "Pixelify Sans", "Press Start 2P", system-ui, monospace;
+      font-weight: 700;
+      color: #ffffff;
+      text-shadow: 3px 3px 0 #000;
+      gap: 6px;
+      opacity: 0;
+      transform: translateY(8px) scale(0.98);
+      transition: opacity 700ms ease, transform 500ms cubic-bezier(0.2, 0.6, 0.2, 1);
+      min-height: 80px;
+      width: 100%;
+    `;
+
+    // Main brand text
+    const brandMain = document.createElement("div");
+    brandMain.style.cssText = `
+      font-size: 24px;
+      letter-spacing: 3px;
+      line-height: 1;
+      color: #ffffff;
+      position: relative;
+      text-shadow: 2px 0 #000, -2px 0 #000, 0 2px #000, 0 -2px #000,
+        2px 2px #000, -2px 2px #000, 2px -2px #000, -2px -2px #000,
+        3px 3px 0 #000;
+      margin-bottom: 8px;
+    `;
+    brandMain.textContent = "HELLBOUND";
+
+    // Green line (more robust approach for mobile compatibility)
+    const greenLine = document.createElement("div");
+    greenLine.style.cssText = `
+      width: 160px;
+      height: 12px;
+      background: linear-gradient(to bottom, #b7ff00 0%, #a0e600 50%, #b7ff00 100%);
+      border: 3px solid #000000;
+      margin: 8px auto;
+      display: block;
+      position: relative;
+      box-sizing: border-box;
+    `;
+
+    // Add inner shadow effect with pseudo-element approach using DOM
+    const innerShadow = document.createElement("div");
+    innerShadow.style.cssText = `
+      position: absolute;
+      top: -3px;
+      left: -3px;
+      right: -3px;
+      bottom: -3px;
+      box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+      pointer-events: none;
+    `;
+    greenLine.appendChild(innerShadow);
+
+    // Sub brand text
+    const brandSub = document.createElement("div");
+    brandSub.style.cssText = `
+      font-size: 14px;
+      letter-spacing: 4px;
+      color: #b7ff00;
+      text-shadow: 3px 3px 0 #000, 0 0 10px rgba(183, 255, 0, 0.3);
+      line-height: 1;
+    `;
+    brandSub.textContent = "STUDIOS";
+
+    // Trademark
+    const brandTm = document.createElement("span");
+    brandTm.style.cssText = `
+      position: absolute;
+      top: -6px;
+      right: -16px;
+      font-size: 9px;
+      color: #ffffff;
+      text-shadow: 2px 2px 0 #000;
+      opacity: 0.9;
+    `;
+    brandTm.textContent = "™";
+
+    // Assemble studio text
+    brandMain.appendChild(brandTm);
+    studioText.appendChild(brandMain);
+    studioText.appendChild(greenLine);
+    studioText.appendChild(brandSub); // Assemble DOM structure
+    loaderContent.appendChild(canvas);
+    loaderContent.appendChild(studioText);
+    overlay.appendChild(loaderContent);
+
+    // Add to game container
+    if (gameContainer) {
+      gameContainer.appendChild(overlay);
+    } else {
+      document.body.appendChild(overlay);
     }
 
-    // Create animation
-    this.anims.create({
-      key: "loader-animation",
-      frames: frames,
-      frameRate: this.config.animation.frameRate,
-      repeat: 0,
+    // Store references
+    (this as any).loaderOverlay = overlay;
+    (this as any).loaderCanvas = canvas;
+    (this as any).studioText = studioText;
+
+    console.log("✅ Canvas loader created successfully (test.html approach)");
+  }
+
+  private showImmediateLoadingIndicator(): void {
+    // Show a simple loading text immediately to avoid gray screen on mobile
+    const centerX = GameSettings.canvas.width / 2;
+    const centerY = GameSettings.canvas.height / 2;
+
+    // Create temporary loading text
+    const loadingText = this.add.text(centerX, centerY, "Loading...", {
+      fontFamily: "Arial, monospace",
+      fontSize: "24px",
+      color: "#ffffff",
+      fontStyle: "bold",
     });
+    loadingText.setOrigin(0.5);
+    loadingText.setAlpha(0.8);
+
+    // Create simple rotating circle as loader
+    const loaderCircle = this.add.graphics();
+    loaderCircle.lineStyle(4, 0xffffff, 0.8);
+    loaderCircle.strokeCircle(0, 0, 30);
+    loaderCircle.setPosition(centerX, centerY - 80);
+
+    // Animate the circle rotation
+    this.tweens.add({
+      targets: loaderCircle,
+      rotation: Math.PI * 2,
+      duration: 1000,
+      repeat: -1,
+      ease: "Linear",
+    });
+
+    // Store references to clean up later
+    (this as any).tempLoadingText = loadingText;
+    (this as any).tempLoaderCircle = loaderCircle;
   }
 
   private createBrandText(): void {
@@ -174,14 +342,147 @@ export class PreloadScene extends Phaser.Scene {
     this.brandText.y += 8;
   }
 
-  private startLoaderAnimation(): void {
-    // Play the sprite animation
-    this.loaderSprite.play("loader-animation");
+  private startCanvasLoaderAnimation(): void {
+    const overlay = (this as any).loaderOverlay;
+    const canvas = (this as any).loaderCanvas;
 
-    // When animation completes, show brand text
-    this.loaderSprite.on("animationcomplete", () => {
-      this.showBrandText();
-    });
+    if (!overlay || !canvas) {
+      console.error(
+        "❌ Canvas loader elements not found, using fallback timing"
+      );
+      // Fallback timing
+      this.time.delayedCall(this.config.animation.duration, () => {
+        this.showStudioText();
+      });
+      return;
+    }
+
+    // Use the exact same approach as test.html
+    const SPRITE_URL = this.config.sprite.url;
+    const ctx = canvas.getContext("2d");
+
+    if (!ctx) {
+      console.error("❌ Could not get 2D context, using fallback timing");
+      this.time.delayedCall(this.config.animation.duration, () => {
+        this.showStudioText();
+      });
+      return;
+    }
+
+    // Disable image smoothing for pixel art
+    if (ctx.imageSmoothingEnabled !== undefined) {
+      ctx.imageSmoothingEnabled = false;
+    }
+
+    // Constants from test.html approach
+    const FRAME_W = this.config.sprite.frameWidth;
+    const FRAME_H = this.config.sprite.frameHeight;
+    const FRAME_COUNT = this.config.animation.frames;
+    const DURATION_MS = this.config.animation.duration;
+    const FRAME_MS = Math.floor(DURATION_MS / FRAME_COUNT);
+
+    let frame = 0;
+
+    // Pre-load the sprite image (like test.html)
+    const img = new Image();
+    img.onload = () => {
+      console.log("✅ Loader sprite image loaded, starting animation");
+
+      const draw = () => {
+        ctx.clearRect(0, 0, FRAME_W, FRAME_H);
+        ctx.drawImage(
+          img,
+          frame * FRAME_W,
+          0,
+          FRAME_W,
+          FRAME_H,
+          0,
+          0,
+          FRAME_W,
+          FRAME_H
+        );
+      };
+
+      // Draw initial frame
+      draw();
+
+      // Start animation
+      const interval = setInterval(() => {
+        if (frame < FRAME_COUNT - 1) {
+          frame += 1;
+          draw();
+        } else {
+          clearInterval(interval);
+          console.log("🎬 Loader animation completed");
+          // Show studio text (like test.html)
+          this.showStudioText();
+        }
+      }, FRAME_MS);
+
+      // Store interval for cleanup
+      (this as any).loaderInterval = interval;
+    };
+
+    img.onerror = () => {
+      console.error(
+        "❌ Failed to load loader sprite image, using fallback timing"
+      );
+      // Fallback timing if image fails to load
+      this.time.delayedCall(this.config.animation.duration, () => {
+        this.showStudioText();
+      });
+    };
+
+    // Start loading the image
+    img.src = SPRITE_URL;
+    console.log("🖼️ Loading sprite from:", SPRITE_URL);
+  }
+
+  private showStudioText(): void {
+    const studioText = (this as any).studioText;
+
+    if (!studioText) {
+      console.warn("⚠️ Studio text element not found, proceeding to menu");
+      this.transitionToMenu();
+      return;
+    }
+
+    // Show studio text with CSS transition (like test.html)
+    studioText.style.opacity = "1";
+    studioText.style.transform = "translateY(0) scale(1)";
+
+    console.log("📝 Studio text shown");
+
+    // Hide after delay and transition to menu (like test.html timing)
+    setTimeout(() => {
+      studioText.style.opacity = "0";
+      studioText.style.transform = "translateY(8px) scale(0.98)";
+
+      setTimeout(() => {
+        this.transitionToMenu();
+      }, 600); // Wait for fade out transition
+    }, 1200); // Show for 1.2s like test.html
+  }
+
+  private transitionToMenu(): void {
+    // Clean up DOM loader overlay
+    const overlay = (this as any).loaderOverlay;
+    const interval = (this as any).loaderInterval;
+
+    if (interval) {
+      clearInterval(interval);
+      (this as any).loaderInterval = null;
+    }
+
+    if (overlay && overlay.parentElement) {
+      overlay.parentElement.removeChild(overlay);
+      (this as any).loaderOverlay = null;
+      (this as any).loaderCanvas = null;
+      (this as any).studioText = null;
+    }
+
+    console.log("🎮 Transitioning to MenuScene");
+    this.scene.start("MenuScene");
   }
 
   private showBrandText(): void {
@@ -206,19 +507,38 @@ export class PreloadScene extends Phaser.Scene {
   }
 
   private hideBrandText(): void {
-    // Fade out brand text
-    this.tweens.add({
-      targets: this.brandText,
-      alpha: 0,
-      duration: this.config.brandText.fadeOutDuration,
-      ease: "Power2.easeOut",
-      onComplete: () => {
-        // Transition to menu scene
-        this.time.delayedCall(300, () => {
-          this.scene.start("MenuScene");
-        });
-      },
-    });
+    // Clean up DOM loader overlay
+    const overlay = (this as any).loaderOverlay;
+    const interval = (this as any).loaderInterval;
+    const studioText = (this as any).studioText;
+
+    if (interval) {
+      clearInterval(interval);
+      (this as any).loaderInterval = null;
+    }
+
+    // Hide studio text with transition (DOM-based)
+    if (studioText) {
+      studioText.style.opacity = "0";
+      studioText.style.transform = "translateY(8px) scale(0.98)";
+    }
+
+    // Clean up after transition
+    setTimeout(() => {
+      // Clean up DOM overlay
+      if (overlay && overlay.parentElement) {
+        overlay.parentElement.removeChild(overlay);
+        (this as any).loaderOverlay = null;
+        (this as any).loaderCanvas = null;
+        (this as any).studioText = null;
+      }
+
+      // Transition to menu scene
+      this.time.delayedCall(300, () => {
+        console.log("🎮 Transitioning to MenuScene");
+        this.scene.start("MenuScene");
+      });
+    }, 600);
   }
 
   private loadingComplete(): void {
@@ -411,5 +731,40 @@ export class PreloadScene extends Phaser.Scene {
         `🎵 Loading ${audioConfig.music.tracks.length} music tracks and sound effects`
       );
     }
+  }
+
+  private loadTilemapWithFallback(): void {
+    console.log("🗺️ Loading tilemap from URL:", GameSettings.tilemap.jsonUrl);
+
+    // First try: Load from external URL
+    this.load.tilemapTiledJSON(
+      GameSettings.tilemap.key,
+      GameSettings.tilemap.jsonUrl
+    );
+
+    // Success handler
+    this.load.on(
+      "filecomplete-tilemapJSON-" + GameSettings.tilemap.key,
+      (key: string) => {
+        console.log("✅ Tilemap loaded successfully from URL:", key);
+      }
+    );
+
+    // Error handler with fallback
+    this.load.on("loaderror", (file: any) => {
+      if (
+        file.type === "tilemapJSON" &&
+        file.key === GameSettings.tilemap.key
+      ) {
+        console.error("❌ Failed to load tilemap from URL:", file.src);
+        console.log("🔄 Trying fallback to local file...");
+
+        // Try fallback to local file
+        this.load.tilemapTiledJSON(
+          GameSettings.tilemap.key + "_fallback",
+          GameSettings.tilemap.jsonPath
+        );
+      }
+    });
   }
 }

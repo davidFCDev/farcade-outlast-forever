@@ -1,0 +1,1887 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Crypto Mahjong Trios</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bangers&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/@farcade/game-sdk@0.2.0/dist/index.min.js"></script>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        background: #0b0c1a;
+        font-family: Arial, sans-serif;
+      }
+
+      #game-container {
+        width: 100%;
+        max-width: 500px;
+        height: 100vh;
+        max-height: 1000px;
+        position: relative;
+        overflow: hidden;
+        background: linear-gradient(rgba(0, 0, 0, 0.849), rgba(0, 0, 0, 0.904)),
+          url("https://lqy3lriiybxcejon.public.blob.vercel-storage.com/TmD6CdLxUZyd/Fondo-F4UwvAr9tV3053Dy63JOlqLrF9TeFp.png?Qj3T")
+            no-repeat center center / cover;
+        border-radius: 10px;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+      }
+
+      /* Fuente global pixel para todos los textos del juego */
+      #game-container,
+      #game-container * {
+        font-family: "Pixelify Sans", "Press Start 2P", system-ui, monospace !important;
+      }
+
+      #menu,
+      #game,
+      #victory,
+      #lose-screen {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        gap: 0.5rem;
+        flex-direction: column;
+        align-items: center;
+        color: white;
+      }
+
+      #menu {
+        justify-content: center;
+      }
+
+      #game-canvas {
+        position: relative;
+        width: 100%;
+        height: calc(100% - 250px);
+        top: 80px;
+        perspective: 1000px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .tile {
+        position: absolute;
+        width: 55px; /* reducido ligeramente de 60px a 55px */
+        height: 70px; /* reducido ligeramente de 75px a 70px */
+        background: #ffffff;
+        border: 2px solid #000000;
+        border-radius: 4px; /* ajustado proporcionalmente */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transform-style: preserve-3d;
+        box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3); /* sombra base para profundidad */
+        user-select: none; /* evitar selección de texto */
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+      }
+
+      .tile img {
+        width: 92%;
+        height: 92%;
+        object-fit: cover;
+        border: none;
+        border-radius: 3px;
+        pointer-events: none; /* asegurar que los clics pasen al contenedor */
+        user-select: none;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+      }
+
+      .tile.free:hover {
+        transform: translateY(-3px) scale(1.1); /* aumentado el efecto para fichas más pequeñas */
+        border-color: #b81f24;
+        background: #fff;
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4),
+          0 0 15px rgba(184, 31, 36, 0.3); /* sombra más prominente */
+      }
+
+      .tile.blocked {
+        opacity: 0.5;
+        cursor: not-allowed !important;
+        background: #f0f0f0;
+        border-color: #999;
+        pointer-events: none; /* Las fichas bloqueadas no deben interceptar clics */
+      }
+
+      .stats {
+        padding: 10px 20px;
+        color: white;
+        width: 100%;
+        background: #0b0c1a;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 0.7rem;
+        border-bottom: 3px solid #b81f24;
+      }
+
+      .stats span {
+        font-weight: bold;
+      }
+
+      #timer-container {
+        position: absolute;
+        top: 60px;
+        right: 5px;
+        background: #b81f24;
+        color: white;
+        padding: 5px 10px;
+        border: 3px solid #0b0c1a;
+        border-radius: 15px;
+        font-size: 16px;
+        font-weight: bold;
+        text-shadow: 2px 2px #0b0c1a;
+        box-shadow: 4px 4px 0 #000;
+      }
+
+      .lives {
+        display: flex;
+        gap: 2px;
+      }
+
+      .heart {
+        font-size: 28px;
+      }
+
+      .heart.active {
+        color: #b81f24;
+      }
+
+      .heart.inactive {
+        color: #444;
+      }
+
+      #menu h1 {
+        font-family: "Bangers", cursive;
+        font-size: 56px; /* further reduced title */
+        color: white;
+        text-shadow: 6px 6px #0b0c1a, -3px -3px #000;
+        letter-spacing: 1px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin: 0 0 14px 0; /* increased spacing below title */
+      }
+
+      button,
+      #start-btn {
+        padding: 15px 30px;
+        background: #b81f24;
+        color: white;
+        border: 6px solid #0b0c1a;
+        border-radius: 12px;
+        font-size: 24px;
+        font-weight: bold;
+        text-transform: uppercase;
+        cursor: pointer;
+        text-shadow: 3px 3px #0b0c1a;
+        box-shadow: 6px 6px 0 #000;
+        transform: rotate(-3deg);
+        transition: transform 0.2s, background 0.2s, box-shadow 0.2s;
+      }
+
+      button:hover,
+      #start-btn:hover {
+        background: #e53935;
+        transform: rotate(0deg);
+        box-shadow: 8px 8px 0 #000, 0 0 15px rgba(232, 57, 53, 0.75);
+      }
+
+      #rules {
+        width: 80%;
+        background: #0b0c1a;
+        padding: 14px 16px; /* reduced padding */
+        border: 4px solid #b81f24;
+        border-radius: 12px;
+        box-shadow: 0 0 15px #000;
+        font-size: 15px; /* slightly smaller */
+        text-align: left;
+        margin-top: 16px; /* increased spacing above rules */
+      }
+
+      #rules h3 {
+        margin: 0 0 10px 0;
+        font-family: "Bangers", cursive;
+        font-size: 24px;
+        text-shadow: 2px 2px #000;
+        color: #d0d4d8; /* replaced yellow with neutral light tone */
+        letter-spacing: 2px;
+      }
+
+      #rules p {
+        margin: 5px 0;
+      }
+
+      #collected-cards {
+        width: 81%;
+        height: 84px;
+        background: #0b0c1a;
+        display: flex;
+        justify-content: flex-start;
+        align-items: center;
+        padding: 10px;
+        gap: 0.1rem;
+        box-sizing: border-box;
+        position: absolute;
+        bottom: -10px;
+        border-right: 3px solid #b81f24;
+        border-left: 3px solid #b81f24;
+        border-top: 3px solid #b81f24;
+        border-radius: 12px;
+        box-shadow: 0 0 15px #000;
+      }
+
+      .collected-tile {
+        width: calc((100% - 20px) / 5);
+        height: 70px;
+        background: #f5f5e1;
+        border: 2px solid #000;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: absolute;
+        transition: transform 0.5s ease-in-out, left 0.5s ease-in-out;
+        box-shadow: 4px 4px 0 #000;
+      }
+
+      .collected-tile img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border: 3px solid #000;
+      }
+
+      #toast {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: #b81f24;
+        color: #ffffff;
+        padding: 8px 14px;
+        border-radius: 8px;
+        border: 3px solid #000;
+        font-size: 14px;
+        font-weight: bold;
+        text-align: center;
+        opacity: 0;
+        transition: opacity 0.4s;
+        max-width: 260px;
+        line-height: 1.2;
+      }
+
+      /* Power-ups bar (freeze time + key) */
+      #powerups-bar {
+        position: absolute;
+        bottom: 72px; /* just above collected area */
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 20px;
+        z-index: 6;
+        pointer-events: none;
+      }
+      #powerups-bar .power-btn {
+        width: 38px;
+        height: 38px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 2px solid #000;
+        border-radius: 10px;
+        background: #b81f24;
+        color: #fff;
+        cursor: pointer;
+        box-shadow: 4px 4px 0 #000;
+        transition: transform 0.2s, box-shadow 0.2s, background 0.25s,
+          filter 0.3s;
+        pointer-events: auto;
+      }
+      #powerups-bar .power-btn:hover:not(.disabled) {
+        transform: translateY(-4px) scale(1.08);
+        box-shadow: 6px 6px 0 #000, 0 0 10px rgba(255, 255, 255, 0.18);
+      }
+      #powerups-bar .power-btn.disabled {
+        background: #555;
+        cursor: not-allowed;
+        filter: grayscale(80%);
+        box-shadow: 0 0 0 #000;
+        transform: none;
+      }
+      #powerups-bar .power-btn img {
+        width: 70%;
+        height: 70%;
+        object-fit: contain;
+        filter: drop-shadow(2px 2px 0 #000);
+        pointer-events: none;
+      }
+
+      @media (max-width: 900px) {
+        #powerups-bar {
+          gap: 14px;
+          bottom: 78px;
+        }
+        #powerups-bar .power-btn {
+          width: 34px;
+          height: 34px;
+        }
+      }
+
+      #victory,
+      #lose-screen {
+        background: rgba(0, 0, 0, 0.8);
+        display: none;
+        justify-content: center;
+        align-items: center;
+      }
+
+      #victory .stats-box {
+        background: #0b0c1a;
+        padding: 20px;
+        border: 4px solid #000; /* cambiado a negro */
+        border-radius: 15px;
+        box-shadow: 6px 6px 0 #000;
+        text-align: center;
+        margin-bottom: 20px;
+        color: white;
+        font-size: 20px;
+        text-shadow: 2px 2px #0b0c1a;
+      }
+
+      #victory .stats-box div {
+        margin: 10px 0;
+        font-weight: bold;
+      }
+
+      /* Estilo de título simple en pantalla de victoria */
+      #victory .victory-title {
+        font-family: "Bangers", cursive;
+        font-size: 40px;
+        color: #fff;
+        text-shadow: 3px 3px 0 #000, 0 0 8px rgba(0, 0, 0, 0.6);
+        letter-spacing: 0.5px;
+        margin-bottom: 10px;
+      }
+
+      #lose-screen .comic-bubble {
+        font-size: 20px; /* smaller lose messages */
+        padding: 12px 20px; /* tighter padding */
+        text-align: center;
+        line-height: 1.25;
+        max-width: 280px;
+      }
+
+      @keyframes trio-match {
+        0% {
+          transform: scale(1) rotate(0deg);
+          opacity: 1;
+          box-shadow: 6px 6px 0 #000;
+        }
+        20% {
+          transform: scale(1.6) rotate(10deg);
+          opacity: 1;
+          box-shadow: 6px 6px 0 #000, 0 0 25px #b81f24;
+        }
+        40% {
+          transform: scale(1.4) rotate(-10deg);
+          opacity: 0.9;
+          box-shadow: 6px 6px 0 #000, 0 0 15px #b81f24;
+        }
+        60% {
+          transform: scale(1.2) rotate(5deg);
+          opacity: 0.7;
+          box-shadow: 6px 6px 0 #000, 0 0 10px #b81f24;
+        }
+        100% {
+          transform: scale(0) rotate(0deg);
+          opacity: 0;
+          box-shadow: none;
+        }
+      }
+
+      audio {
+        display: none;
+      }
+
+      /* ===== Loader overlay (sólo primera carga) ===== */
+      #loader-overlay {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: #000000;
+        z-index: 9999;
+        pointer-events: all;
+      }
+
+      #loader-overlay .loader-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 20px;
+        width: 100%;
+      }
+
+      /* Canvas de sprite sheet: 4097x345, 17 frames => 241x345 por frame */
+      #loader-canvas {
+        width: 241px;
+        height: 345px;
+        image-rendering: pixelated;
+        transform-origin: center;
+        background: transparent;
+        display: block;
+      }
+
+      #studio-text {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        font-family: "Pixelify Sans", "Press Start 2P", system-ui, monospace;
+        font-weight: 700;
+        color: #ffffff;
+        text-shadow: 3px 3px 0 #000;
+        gap: 6px;
+        opacity: 0;
+        transform: translateY(8px) scale(0.98);
+        transition: opacity 700ms ease,
+          transform 500ms cubic-bezier(0.2, 0.6, 0.2, 1);
+      }
+
+      #studio-text.show {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+
+      #studio-text .brand-main {
+        font-size: 24px;
+        letter-spacing: 3px;
+        line-height: 1;
+        color: #ffffff;
+        position: relative;
+        /* Borde pixelado adicional */
+        text-shadow: 2px 0 #000, -2px 0 #000, 0 2px #000, 0 -2px #000,
+          2px 2px #000, -2px 2px #000, 2px -2px #000, -2px -2px #000,
+          3px 3px 0 #000; /* mantiene la estética previa */
+      }
+
+      #studio-text .brand-main::after {
+        content: "";
+        display: block;
+        width: 160px;
+        height: 6px;
+        margin: 8px auto 0;
+        background: #b7ff00;
+        border: 3px solid #000;
+        box-shadow: 4px 4px 0 #000;
+      }
+
+      #studio-text .brand-sub {
+        font-size: 14px;
+        letter-spacing: 4px;
+        color: #b7ff00;
+        text-shadow: 3px 3px 0 #000, 0 0 10px rgba(183, 255, 0, 0.3);
+        line-height: 1;
+      }
+
+      #studio-text .brand-tm {
+        position: absolute;
+        top: -6px;
+        right: -16px;
+        font-size: 9px;
+        color: #ffffff;
+        text-shadow: 2px 2px 0 #000;
+        opacity: 0.9;
+      }
+
+      @media (max-width: 520px) {
+        #loader-canvas {
+          transform: scale(0.8);
+        }
+        #studio-text .brand-main {
+          font-size: 20px;
+        }
+        #studio-text .brand-main::after {
+          width: 140px;
+          height: 6px;
+          margin-top: 6px;
+        }
+        #studio-text .brand-sub {
+          font-size: 13px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game-container">
+      <!-- Loader overlay (se mostrará sólo al cargar por primera vez) -->
+      <div id="loader-overlay">
+        <div class="loader-content">
+          <canvas id="loader-canvas" width="241" height="345"></canvas>
+          <div id="studio-text">
+            <span class="brand-main">HELLBOUND</span>
+            <span class="brand-sub">STUDIOS</span>
+            <span class="brand-tm">™</span>
+          </div>
+        </div>
+      </div>
+      <div id="menu">
+        <h1><span>Crypto</span><span>Mahjong</span></h1>
+        <button id="start-btn" onclick="startGame()">START</button>
+        <div id="rules">
+          <h3>Rules:</h3>
+          <p>- Match three identical cards</p>
+          <p>- Only top cards can be selected</p>
+          <p>- Reach high score before time runs out or you run out of moves</p>
+          <p>- Lose 3 lives and it's game over!</p>
+          <p>- Freeze Time (clock): stop the countdown once per game</p>
+          <p>- Key Power (key): remove the best trio instantly once per game</p>
+        </div>
+      </div>
+
+      <div id="game" style="display: none">
+        <div class="stats">
+          <div class="lives">
+            <span class="heart active">♥</span>
+            <span class="heart active">♥</span>
+            <span class="heart active">♥</span>
+          </div>
+          <div>Level: <span id="level">1</span></div>
+          <div>Score: <span id="score">0</span></div>
+        </div>
+        <div id="timer-container">
+          <div><span id="time">0</span></div>
+        </div>
+        <div id="game-canvas"></div>
+        <div id="powerups-bar">
+          <div
+            id="freeze-time-btn"
+            class="power-btn"
+            title="Freeze time (one use)"
+          >
+            <img
+              src="https://lqy3lriiybxcejon.public.blob.vercel-storage.com/zS0QCi0PfUjO/Pixel%20Clock-Pd21FxDg7D1P8qyn2yDfDGlZiNN4Qv.png?dh2k"
+              alt="Freeze"
+            />
+          </div>
+          <div
+            id="hint-btn"
+            class="power-btn"
+            title="Key (remove optimal trio)"
+          >
+            <img
+              src="https://lqy3lriiybxcejon.public.blob.vercel-storage.com/zS0QCi0PfUjO/key-vOGnBfYwDjzhs50sbdRO3W5uujvIxO.png?9A8o"
+              alt="Key"
+            />
+          </div>
+        </div>
+        <div id="collected-cards"></div>
+      </div>
+
+      <div id="victory">
+        <div class="victory-title">Congratulations!</div>
+        <div class="stats-box">
+          <div>Score: <span id="victory-score"></span></div>
+          <div>Time: <span id="victory-time"></span>s</div>
+          <div>Moves: <span id="victory-moves"></span></div>
+        </div>
+        <button onclick="nextLevel()">Next Level</button>
+      </div>
+
+      <div id="lose-screen">
+        <div class="comic-bubble" id="lose-message"></div>
+        <button id="retry-btn" onclick="retryLevel()">Retry</button>
+      </div>
+
+      <div id="toast"></div>
+
+      <audio id="trio-sound">
+        <source
+          src="https://lqy3lriiybxcejon.public.blob.vercel-storage.com/TmD6CdLxUZyd/sound1-ypKOdJ7EZ6bOdykWT0QUtJbEeem9aX.mpeg?QwZS"
+          type="audio/mp3"
+        />
+        Your browser does not support the audio element.
+      </audio>
+      <audio id="victory-sound">
+        <source
+          src="https://lqy3lriiybxcejon.public.blob.vercel-storage.com/TmD6CdLxUZyd/winning-IBSP65T5Dl3HA4iWSGI8XV2LpUkYVA.mpeg?Btp6"
+          type="audio/mp3"
+        />
+        Your browser does not support the audio element.
+      </audio>
+      <audio id="background-music" loop>
+        <!-- La rotación de pistas se gestiona vía JS; el elemento inicia sin <source> fijo -->
+        Your browser does not support the audio element.
+      </audio>
+    </div>
+
+    <script>
+      const cardImages = [
+        "https://lqy3lriiybxcejon.public.blob.vercel-storage.com/TmD6CdLxUZyd/Card1-Rok18oWVG3JikuDnfPItrj80f59Igo.png?IUIY",
+        "https://lqy3lriiybxcejon.public.blob.vercel-storage.com/TmD6CdLxUZyd/Card2-HpBNIwHejdMxwekYjHMDow7sJx9eQb.png?OsIm",
+        "https://lqy3lriiybxcejon.public.blob.vercel-storage.com/TmD6CdLxUZyd/Card3-vJZMcmeZ3EQHqrUCjMvt6oIpzf8VSY.png?BYjY",
+        "https://lqy3lriiybxcejon.public.blob.vercel-storage.com/TmD6CdLxUZyd/Card4-rZBaNFekDPFqvU0vrPpLPbiW0iAMje.png?6DQ9",
+        "https://lqy3lriiybxcejon.public.blob.vercel-storage.com/TmD6CdLxUZyd/Card5-p7RElqs2oi3deYhq40q6KKFjIYhu0i.png?LUyG",
+        "https://lqy3lriiybxcejon.public.blob.vercel-storage.com/TmD6CdLxUZyd/Card6-AkDFwqtgytFV7adAv2cKxPpz4UZlDX.png?ROMI",
+        "https://lqy3lriiybxcejon.public.blob.vercel-storage.com/TmD6CdLxUZyd/Card7-6smjbrbzZ7yvywYjePGp4dvMVhIkx2.png?cvTc",
+        "https://lqy3lriiybxcejon.public.blob.vercel-storage.com/TmD6CdLxUZyd/Card8-u2fsng3hPZuJ1HF4P7SGeAyZvWM9go.png?rOno",
+        "https://lqy3lriiybxcejon.public.blob.vercel-storage.com/TmD6CdLxUZyd/Card9-JrmnInFmDbUJluy96pdsItGg16dcx6.png?pEav",
+        "https://lqy3lriiybxcejon.public.blob.vercel-storage.com/TmD6CdLxUZyd/Card10-Ji9VsLljctrbevQGqh58H4LmA5I75s.png?Uc2U",
+      ];
+
+      let tiles = [];
+      let collectedTiles = [];
+      let moves = 0;
+      let time = 0;
+      let level = 1;
+      let lives = 3;
+      let score = 0;
+      let timer;
+      const BASE_TIME = 40;
+      let isMuted = false;
+      // Power-up flags
+      let timeFreezeUsed = false;
+      let timerFrozen = false;
+      let hintUsed = false;
+      // Control de selección única (simplificado)
+      let selectedTileId = null;
+
+      // Configs base (1..10) para referencia visual y calibración
+      const levelConfig = [
+        { layers: 2, width: 3, height: 3, baseTiles: 9, totalTiles: 18 }, // 1
+        { layers: 3, width: 4, height: 4, baseTiles: 16, totalTiles: 30 }, // 2
+        { layers: 4, width: 4, height: 4, baseTiles: 16, totalTiles: 36 }, // 3
+        { layers: 5, width: 4, height: 4, baseTiles: 16, totalTiles: 48 }, // 4
+        { layers: 6, width: 4, height: 4, baseTiles: 16, totalTiles: 66 }, // 5
+        { layers: 7, width: 4, height: 4, baseTiles: 16, totalTiles: 84 }, // 6
+        { layers: 8, width: 4, height: 4, baseTiles: 16, totalTiles: 108 }, // 7
+        { layers: 9, width: 4, height: 4, baseTiles: 16, totalTiles: 135 }, // 8
+        { layers: 10, width: 4, height: 4, baseTiles: 16, totalTiles: 165 }, // 9
+        { layers: 11, width: 4, height: 4, baseTiles: 16, totalTiles: 198 }, // 10
+      ];
+
+      // Generador de configuración infinita a partir del nivel
+      function getLevelConfig(levelNumber) {
+        // Usa la tabla base hasta 10, luego escala
+        if (levelNumber <= levelConfig.length) {
+          // devolver una copia para no mutar la base
+          return { ...levelConfig[levelNumber - 1] };
+        }
+
+        // A partir del 11 en adelante: escalar capas y totalTiles de forma progresiva
+        const base = levelConfig[levelConfig.length - 1]; // última conocida
+        const extra = levelNumber - levelConfig.length; // 1 => nivel 11
+
+        // Estrategia: aumentar capas cada cierto número de niveles y añadir tiles en múltiplos de 3
+        const layers = base.layers + Math.floor(extra / 1); // +1 capa por nivel para reto creciente
+        const width = base.width; // mantener rejilla 4x4 estable
+        const height = base.height;
+        const baseTiles = width * height; // 16
+
+        // Crecer totalTiles de forma aproximadamente lineal con capas adicionales
+        // Partimos de 198 en nivel 10. Sumamos 24 por nivel (8 tríos) como regla simple.
+        const growthPerLevel = 24; // múltiplo de 3 garantizado
+        let totalTiles = 198 + growthPerLevel * (levelNumber - 10);
+
+        // Asegurar múltiplo de 3 (por seguridad, aunque ya lo es)
+        if (totalTiles % 3 !== 0) {
+          totalTiles = Math.round(totalTiles / 3) * 3;
+        }
+
+        return { layers, width, height, baseTiles, totalTiles };
+      }
+
+      const backgroundMusic = document.getElementById("background-music");
+      // Playlist de música de fondo (rotación)
+      const backgroundPlaylist = [
+        "https://lqy3lriiybxcejon.public.blob.vercel-storage.com/zS0QCi0PfUjO/tricky-fox-188090-f9OI5Yaab8QwXpiUizDUYiuNiclZ6X.mp3?VcDs",
+        "https://lqy3lriiybxcejon.public.blob.vercel-storage.com/zS0QCi0PfUjO/puzzle-game-bright-casual-video-game-music-249202-IXpAPoNLmHQvesMUnyIFRnJ9yDfOzl.mp3?yAAE",
+      ];
+      let currentTrackIndex = -1; // se avanzará a 0 en primer arranque
+      const trioSound = document.getElementById("trio-sound");
+      const victorySound = document.getElementById("victory-sound");
+
+      function playAudio(audioElement, volume) {
+        if (audioElement) {
+          audioElement.volume = volume;
+          audioElement
+            .play()
+            .catch((e) => console.log("Error playing audio:", e));
+        }
+      }
+
+      function pauseAudio(audioElement) {
+        if (audioElement) {
+          audioElement.pause();
+        }
+      }
+
+      window.FarcadeSDK.on("play_again", () => {
+        resetGame();
+      });
+
+      window.FarcadeSDK.on("toggle_mute", (data) => {
+        setMuted(data.isMuted);
+      });
+
+      function startGame() {
+        console.log("Starting game...");
+        document.getElementById("menu").style.display = "none";
+        document.getElementById("lose-screen").style.display = "none";
+        document.getElementById("game").style.display = "flex";
+        level = 1;
+        lives = 3;
+        score = 0;
+        // Resetear controles de selección
+        selectedTileId = null;
+        updateLivesDisplay();
+        generateBoard(level);
+        startTimer();
+        // timeFreezeUsed NO se resetea - solo se puede usar una vez en todo el juego
+        timerFrozen = false;
+        hintUsed = false;
+        const freezeBtn = document.getElementById("freeze-time-btn");
+        // Solo habilitar el botón de congelar tiempo si no se ha usado
+        if (freezeBtn && !timeFreezeUsed)
+          freezeBtn.classList.remove("disabled");
+        const hintBtn = document.getElementById("hint-btn");
+        if (hintBtn) {
+          hintBtn.classList.remove("disabled");
+          hintBtn.setAttribute("title", "Make a trio");
+        }
+        if (!isMuted && backgroundMusic) {
+          queueNextBackgroundTrack(true); // seleccionar y reproducir siguiente pista
+        }
+        window.FarcadeSDK.singlePlayer.actions.ready();
+      }
+
+      function resetGame() {
+        clearInterval(timer);
+        tiles = [];
+        collectedTiles = [];
+        moves = 0;
+        time = 0;
+        level = 1;
+        lives = 3;
+        score = 0;
+        // Resetear poderes para nuevo juego completo
+        timeFreezeUsed = false;
+        timerFrozen = false;
+        hintUsed = false;
+        document.getElementById("game").style.display = "none";
+        document.getElementById("victory").style.display = "none";
+        document.getElementById("lose-screen").style.display = "none";
+        document.getElementById("menu").style.display = "flex";
+        updateLivesDisplay();
+        // Habilitar botones de poderes para nuevo juego
+        const freezeBtn = document.getElementById("freeze-time-btn");
+        if (freezeBtn) freezeBtn.classList.remove("disabled");
+        const hintBtn = document.getElementById("hint-btn");
+        if (hintBtn) hintBtn.classList.remove("disabled");
+        if (!isMuted && backgroundMusic) {
+          backgroundMusic.currentTime = 0;
+          queueNextBackgroundTrack(true);
+        }
+        window.FarcadeSDK.singlePlayer.actions.ready();
+      }
+
+      function setMuted(muted) {
+        isMuted = muted;
+        if (isMuted) {
+          pauseAudio(backgroundMusic);
+          if (trioSound) trioSound.volume = 0;
+          if (victorySound) victorySound.volume = 0;
+        } else {
+          if (backgroundMusic) {
+            if (!backgroundMusic.src) {
+              queueNextBackgroundTrack(true);
+            } else {
+              playAudio(backgroundMusic, 0.3);
+            }
+          }
+          if (trioSound) trioSound.volume = 0.5;
+          if (victorySound) victorySound.volume = 0.7;
+        }
+      }
+
+      function generateBoard(currentLevel) {
+        console.log(`Generating board for level ${currentLevel}`);
+        const canvas = document.getElementById("game-canvas");
+        canvas.innerHTML = "";
+        tiles = [];
+        collectedTiles = [];
+        const collectedArea = document.getElementById("collected-cards");
+        collectedArea.innerHTML = "";
+        moves = 0;
+        time = 0;
+        document.getElementById("level").textContent = level;
+        document.getElementById("score").textContent = score;
+        const maxTime = BASE_TIME + (level - 1) * 10;
+        document.getElementById("time").textContent = maxTime;
+        // Obtener configuración infinita (base o escalada)
+        const config = getLevelConfig(currentLevel);
+        const totalTiles = config.totalTiles;
+        const baseSize = config.width * config.height;
+
+        // VALIDACIÓN CRÍTICA: Asegurar que totalTiles sea múltiplo de 3
+        if (config.totalTiles % 3 !== 0) {
+          console.error(
+            `ERROR CRÍTICO: Nivel ${currentLevel} tiene ${config.totalTiles} fichas, que no es múltiplo de 3!`
+          );
+          // Ajustar automáticamente al múltiplo de 3 más cercano (hacia abajo)
+          const adjustedTiles = Math.floor(config.totalTiles / 3) * 3;
+          console.warn(
+            `Ajustando automáticamente de ${config.totalTiles} a ${adjustedTiles} fichas`
+          );
+          config.totalTiles = adjustedTiles;
+        }
+
+        const triosNeeded = config.totalTiles / 3;
+        const tileTrios = [];
+
+        // NUEVA VALIDACIÓN: Asegurar que triosNeeded sea un número entero
+        if (!Number.isInteger(triosNeeded)) {
+          console.error(
+            `ERROR CRÍTICO: triosNeeded no es entero: ${triosNeeded}`
+          );
+          throw new Error(
+            `Nivel ${currentLevel}: ${config.totalTiles} fichas no es múltiplo de 3`
+          );
+        }
+
+        // Generar exactamente 3 copias de cada imagen en orden cíclico
+        for (let i = 0; i < triosNeeded; i++) {
+          const imageUrl = cardImages[i % cardImages.length];
+          tileTrios.push(imageUrl, imageUrl, imageUrl);
+        }
+
+        // VALIDACIÓN CRÍTICA: Verificar que tileTrios tiene exactamente totalTiles elementos
+        if (tileTrios.length !== totalTiles) {
+          console.error(
+            `ERROR CRÍTICO: tileTrios tiene ${tileTrios.length} elementos, pero se esperan ${totalTiles}`
+          );
+          throw new Error(
+            `Nivel ${currentLevel}: Mismatch entre tileTrios.length (${tileTrios.length}) y totalTiles (${totalTiles})`
+          );
+        }
+
+        // VALIDACIÓN PREVIA: Verificar antes de mezclar
+        console.log(
+          `Generando ${triosNeeded} trios (${tileTrios.length} fichas total) para nivel ${currentLevel}`
+        );
+
+        // Contar cada tipo antes de mezclar para verificar
+        const preShuffleCount = {};
+        tileTrios.forEach((url) => {
+          preShuffleCount[url] = (preShuffleCount[url] || 0) + 1;
+        });
+
+        let preValidationPassed = true;
+        for (let url in preShuffleCount) {
+          if (preShuffleCount[url] % 3 !== 0) {
+            console.error(
+              `❌ PRE-VALIDACIÓN FALLO: ${url} tiene ${preShuffleCount[url]} fichas (no múltiplo de 3)`
+            );
+            preValidationPassed = false;
+          }
+        }
+
+        if (!preValidationPassed) {
+          throw new Error(`Pre-validación fallida en nivel ${currentLevel}`);
+        }
+
+        shuffleArray(tileTrios);
+
+        // -------- LÓGICA DE ESCALADO Y ZONA SEGURA OPTIMIZADA --------
+        // Márgenes seguros ajustados para evitar superposición con el timer
+        let SAFE_TOP_MARGIN = 90; // timer está en top: 60px + padding + altura ≈ 90px
+        let SAFE_BOTTOM_MARGIN = 120; // reducido de 140 a 120
+        let SAFE_SIDE_MARGIN = 15; // margen base más el ancho estimado del timer desde la derecha
+        // Dynamic adjustment to ensure no overlap with timer, stats, powerups bar or collected area
+        try {
+          const containerEl = document.getElementById("game");
+          const statsEl = document.querySelector(".stats");
+          const timerEl = document.getElementById("timer-container");
+          const powerBar = document.getElementById("powerups-bar");
+          const collectedEl = document.getElementById("collected-cards");
+
+          if (containerEl && statsEl) {
+            const containerRect = containerEl.getBoundingClientRect();
+            const statsRect = statsEl.getBoundingClientRect();
+
+            // Calcular margen superior dinámico basado en el área de stats
+            const statsBottomGlobal = statsRect.bottom;
+            const statsTopMargin = statsBottomGlobal - containerRect.top + 15; // 15px de margen extra
+            SAFE_TOP_MARGIN = Math.max(SAFE_TOP_MARGIN, statsTopMargin);
+          }
+
+          if (containerEl && timerEl) {
+            const containerRect = containerEl.getBoundingClientRect();
+            const timerRect = timerEl.getBoundingClientRect();
+
+            // Calcular margen superior dinámico basado en la posición del timer
+            const timerBottomGlobal = timerRect.bottom;
+            const timerTopMargin = timerBottomGlobal - containerRect.top + 10; // 10px de margen extra
+            SAFE_TOP_MARGIN = Math.max(SAFE_TOP_MARGIN, timerTopMargin);
+
+            // Calcular margen lateral derecho dinámico basado en el timer
+            const timerLeftGlobal = timerRect.left;
+            const timerRightMargin = containerRect.right - timerLeftGlobal + 10; // 10px de margen extra
+            SAFE_SIDE_MARGIN = Math.max(SAFE_SIDE_MARGIN, timerRightMargin);
+          }
+
+          if (containerEl && powerBar && collectedEl) {
+            const containerRect = containerEl.getBoundingClientRect();
+            const powerRect = powerBar.getBoundingClientRect();
+            const collectedRect = collectedEl.getBoundingClientRect();
+            // Region from the highest (closest to top) of the reserved bottom UI elements to container bottom
+            const reservedTopGlobal = Math.min(
+              powerRect.top,
+              collectedRect.top
+            );
+            const reservedHeightGlobal =
+              containerRect.bottom - reservedTopGlobal;
+            // Translate global reserved height into canvas local safe margin (approx):
+            // canvas height is independent; we use the same reservedHeight as bottom margin inside canvas to be conservative.
+            SAFE_BOTTOM_MARGIN = Math.max(
+              SAFE_BOTTOM_MARGIN,
+              reservedHeightGlobal + 10
+            );
+          }
+        } catch (e) {
+          console.warn("Dynamic safe margin failed, using default", e);
+        }
+
+        // Empuje adicional hacia arriba en niveles/capas altos para dejar más aire con los botones inferiores
+        // Crece con el número de capas pero está acotado.
+        const EXTRA_BOTTOM_PADDING = Math.min(
+          80,
+          10 + Math.max(0, config.layers - 1) * 6
+        );
+        SAFE_BOTTOM_MARGIN += EXTRA_BOTTOM_PADDING;
+
+        // Tamaños fijos para todas las fichas (ligeramente más pequeño)
+        const fixedTileWidth = 55;
+        const fixedTileHeight = 70;
+
+        // Espaciado adaptativo con mayor separación entre capas
+        const layerReduction = Math.max(0, config.layers - 2); // factor de reducción
+        let baseXGap = Math.max(2, 8 - layerReduction * 0.5); // espaciado mínimo entre fichas
+        let baseYGap = Math.max(2, 6 - layerReduction * 0.5); // espaciado mínimo entre fichas
+        let layerOffset = Math.max(15, 30 - layerReduction * 1); // mayor offset entre capas para distinguirlas
+
+        const canvasRect = canvas.getBoundingClientRect();
+        const availableWidth = canvasRect.width - SAFE_SIDE_MARGIN * 2;
+        const availableHeight =
+          canvasRect.height - SAFE_TOP_MARGIN - SAFE_BOTTOM_MARGIN;
+
+        // Dimensiones requeridas con tamaños fijos
+        const requiredWidth =
+          config.width * fixedTileWidth + (config.width - 1) * baseXGap;
+        const requiredHeightBase =
+          config.height * fixedTileHeight + (config.height - 1) * baseYGap;
+        const requiredHeightLayers = (config.layers - 1) * layerOffset;
+        const requiredHeight = requiredHeightBase + requiredHeightLayers;
+
+        // Factor de escala solo para espaciado si es necesario
+        const scaleFactor = Math.min(
+          1,
+          availableWidth / requiredWidth,
+          availableHeight / requiredHeight
+        );
+
+        // Aplicar factor de escala solo al espaciado si es necesario para que quepa todo
+        if (scaleFactor < 1) {
+          baseXGap *= scaleFactor;
+          baseYGap *= scaleFactor;
+          layerOffset *= scaleFactor;
+        }
+
+        // Espaciamientos finales (posición entre centros de fichas en grilla)
+        // Usar tamaños fijos de fichas (120x150px) para cálculos
+        const xSpacing = fixedTileWidth + baseXGap;
+        const ySpacing = fixedTileHeight + baseYGap;
+
+        const boardWidth =
+          config.width * fixedTileWidth +
+          (config.width - 1) * (xSpacing - fixedTileWidth);
+        const boardHeight =
+          config.height * fixedTileHeight +
+          (config.height - 1) * (ySpacing - fixedTileHeight) +
+          (config.layers - 1) * layerOffset;
+
+        // Centrado dentro de la zona segura (ligeramente sesgado hacia arriba para dar más aire abajo)
+        const offsetX = SAFE_SIDE_MARGIN + (availableWidth - boardWidth) / 2;
+        const offsetY =
+          SAFE_TOP_MARGIN + (availableHeight - boardHeight) * 0.35;
+        // ---------------------------------------------------------
+
+        // Crear todas las posiciones primero
+        const allPositions = [];
+
+        // Agregar posiciones de la capa base (z=0)
+        for (let y = 0; y < config.height; y++) {
+          for (let x = 0; x < config.width; x++) {
+            allPositions.push({ x, y, z: 0 });
+          }
+        }
+
+        // Agregar posiciones de capas superiores
+        const basePositions = [];
+        for (let y = 0; y < config.height; y++) {
+          for (let x = 0; x < config.width; x++) {
+            basePositions.push({ x, y });
+          }
+        }
+        shuffleArray(basePositions);
+
+        let posIndex = 0;
+        const remainingTiles = totalTiles - baseSize;
+        for (let i = 0; i < remainingTiles; i++) {
+          const z = Math.floor(i / baseSize) + 1;
+          if (z >= config.layers) break;
+          const pos = basePositions[posIndex % basePositions.length];
+          allPositions.push({ x: pos.x, y: pos.y, z: z });
+          posIndex++;
+        }
+
+        // Crear las fichas usando las imágenes del array barajado
+        // VALIDACIÓN CRÍTICA: Asegurar que tenemos suficientes posiciones
+        if (allPositions.length < totalTiles) {
+          console.error(
+            `ERROR: Solo hay ${allPositions.length} posiciones para ${totalTiles} fichas`
+          );
+          // Duplicar posiciones aleatorias para completar las fichas faltantes
+          const missingPositions = totalTiles - allPositions.length;
+          for (let i = 0; i < missingPositions; i++) {
+            const randomPos =
+              allPositions[Math.floor(Math.random() * allPositions.length)];
+            // Crear nueva posición ligeramente desplazada
+            allPositions.push({
+              x: randomPos.x,
+              y: randomPos.y,
+              z: randomPos.z + 1, // Colocar en capa superior
+            });
+          }
+          console.warn(
+            `Se agregaron ${missingPositions} posiciones adicionales`
+          );
+        }
+
+        // Crear EXACTAMENTE totalTiles fichas
+        for (let tileIndex = 0; tileIndex < totalTiles; tileIndex++) {
+          const position = allPositions[tileIndex];
+          const tile = {
+            id: tileIndex,
+            imageUrl: tileTrios[tileIndex], // Usar directamente el array barajado
+            x: position.x,
+            y: position.y,
+            z: position.z,
+            element: null,
+            free: true,
+            xSpacing: xSpacing,
+            ySpacing: ySpacing,
+            offsetX: offsetX,
+            offsetY: offsetY,
+            layerOffset: layerOffset,
+          };
+          tiles.push(tile);
+          createTileElement(tile);
+        }
+
+        const tileCounts = {};
+        tiles.forEach((tile) => {
+          tileCounts[tile.imageUrl] = (tileCounts[tile.imageUrl] || 0) + 1;
+        });
+
+        // VALIDACIÓN CRÍTICA ADICIONAL: Verificar que se crearon exactamente las fichas esperadas
+        if (tiles.length !== totalTiles) {
+          console.error(
+            `❌ ERROR CRÍTICO: Se crearon ${tiles.length} fichas, pero se esperaban ${totalTiles}`
+          );
+          throw new Error(
+            `Nivel ${currentLevel}: Número incorrecto de fichas creadas`
+          );
+        }
+
+        // VALIDACIÓN MEJORADA: Verificar que todas las fichas sean múltiplos de 3
+        console.log(`=== VALIDACIÓN NIVEL ${currentLevel} ===`);
+        console.log(`Total fichas generadas: ${tiles.length}`);
+        console.log(`Total fichas esperadas: ${config.totalTiles}`);
+        console.log("Conteo por imagen:", tileCounts);
+
+        let validationPassed = true;
+        let totalTriosAvailable = 0;
+
+        for (let url in tileCounts) {
+          const count = tileCounts[url];
+          if (count % 3 !== 0) {
+            console.error(
+              `❌ ERROR: ${url} tiene ${count} instancias (no es múltiplo de 3)`
+            );
+            validationPassed = false;
+          } else {
+            totalTriosAvailable += Math.floor(count / 3);
+            console.log(
+              `✅ ${url}: ${count} fichas = ${Math.floor(count / 3)} tríos`
+            );
+          }
+        }
+
+        if (validationPassed) {
+          console.log(
+            `✅ VALIDACIÓN EXITOSA: ${totalTriosAvailable} tríos disponibles`
+          );
+        } else {
+          console.error(
+            `❌ VALIDACIÓN FALLIDA: El nivel ${currentLevel} tiene fichas no balanceadas`
+          );
+          // DETENER EL JUEGO si la validación falla
+          throw new Error(
+            `Nivel ${currentLevel}: Validación fallida - fichas no balanceadas. No se puede garantizar que el nivel sea completable.`
+          );
+        }
+
+        // Validación adicional: verificar que el número total de tríos es correcto
+        if (totalTriosAvailable !== triosNeeded) {
+          console.error(
+            `❌ ERROR CRÍTICO: Se esperaban ${triosNeeded} tríos, pero se encontraron ${totalTriosAvailable}`
+          );
+          throw new Error(
+            `Nivel ${currentLevel}: Número incorrecto de tríos (esperados: ${triosNeeded}, encontrados: ${totalTriosAvailable})`
+          );
+        }
+
+        console.log("=== FIN VALIDACIÓN ===");
+
+        updateTileStatus();
+      }
+
+      // Visibility threshold: require tile to be more than 50% visible to be clickable
+      const FREE_TILE_VISIBILITY_THRESHOLD = 0.5; // cambiado a 50% para mayor accesibilidad
+
+      function createTileElement(tile) {
+        const canvas = document.getElementById("game-canvas");
+        const element = document.createElement("div");
+        element.className = "tile";
+        element.innerHTML = `<img src="${tile.imageUrl}" alt="Card">`;
+        // Usar tamaño fijo de 55x70px para todas las fichas
+        element.style.width = "55px";
+        element.style.height = "70px";
+        const layerOffset = tile.layerOffset || 25; // aumentado para mejor separación
+        element.style.left = `${tile.x * tile.xSpacing + tile.offsetX}px`;
+        element.style.top = `${
+          tile.y * tile.ySpacing + tile.offsetY + tile.z * layerOffset
+        }px`;
+        element.style.transform = `translateZ(${tile.z * layerOffset}px)`;
+
+        // Efectos visuales mejorados por capas
+        const depthFactor = tile.z;
+
+        // Colores de borde por capa para mejor diferenciación
+        const borderColors = [
+          "#000000", // capa base - negro
+          "#1a1a1a", // capa 1 - gris muy oscuro
+          "#333333", // capa 2 - gris oscuro
+          "#4d4d4d", // capa 3 - gris medio-oscuro
+          "#666666", // capa 4 - gris medio
+          "#808080", // capa 5 - gris claro
+        ];
+
+        // Sombras progresivas por capa para efecto de profundidad (reducidas)
+        const shadowIntensity = 2 + depthFactor * 1.5; // Reducido de *3 a *1.5
+        const shadowBlur = 4 + depthFactor * 1; // Reducido de *2 a *1
+        const shadowOffsetX = 1 + depthFactor * 1; // Reducido de *2 a *1
+        const shadowOffsetY = 1 + depthFactor * 1; // Reducido de *2 a *1
+
+        const borderColor =
+          borderColors[Math.min(depthFactor, borderColors.length - 1)];
+
+        // Aplicar estilos mejorados con efectos de profundidad
+        element.style.borderColor = borderColor;
+        element.style.borderWidth = `${2 + Math.min(depthFactor, 3)}px`; // borde más grueso en capas superiores
+        element.style.boxShadow = `${shadowOffsetX}px ${shadowOffsetY}px ${shadowBlur}px rgba(0, 0, 0, ${
+          0.2 + depthFactor * 0.05 // Reducido de 0.3 + *0.1 a 0.2 + *0.05 para sombras más suaves
+        })`;
+
+        // Efecto de elevación sutil: las capas superiores son ligeramente más distinguibles
+        const brightness = 1 + depthFactor * 0.02; // Reducido de 0.05 a 0.02 para efecto más sutil
+        element.style.filter = `brightness(${brightness})`;
+
+        element.dataset.layer = depthFactor;
+        element.style.zIndex = 100 + tile.z;
+
+        // Asegurar que solo las fichas libres tengan cursor pointer
+        element.style.cursor = tile.free ? "pointer" : "default";
+
+        // Event listeners mejorados para mejor precisión
+        element.addEventListener("click", (e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          if (
+            tile.free &&
+            tile.element &&
+            tile.element.classList.contains("free")
+          ) {
+            selectTile(tile);
+          }
+        });
+
+        element.addEventListener("mousedown", (e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          if (
+            tile.free &&
+            tile.element &&
+            tile.element.classList.contains("free")
+          ) {
+            selectTile(tile);
+          }
+        });
+
+        // Event listener para touch devices
+        element.addEventListener("touchstart", (e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          if (
+            tile.free &&
+            tile.element &&
+            tile.element.classList.contains("free")
+          ) {
+            selectTile(tile);
+          }
+        });
+
+        // Área de hit-testing para touch más amplia
+        element.style.touchAction = "manipulation";
+        element.dataset.tileId = tile.id;
+        canvas.appendChild(element);
+        tile.element = element;
+      }
+
+      function updateTileStatus() {
+        tiles.forEach((tile) => {
+          // Usar tamaños fijos correctos para el cálculo de visibilidad
+          const tW = 60; // tamaño fijo actual
+          const tH = 75; // tamaño fijo actual
+          const layerOffset = tile.layerOffset || 25;
+          const tileRect = {
+            left: tile.x * tile.xSpacing + tile.offsetX,
+            top: tile.y * tile.ySpacing + tile.offsetY + tile.z * layerOffset,
+            right: tile.x * tile.xSpacing + tile.offsetX + tW,
+            bottom:
+              tile.y * tile.ySpacing + tile.offsetY + tile.z * layerOffset + tH,
+          };
+          const tileArea = tW * tH; // Área total de la ficha
+
+          let coveredArea = 0;
+
+          // Obtener todas las fichas que están por encima de esta
+          const coveringTiles = tiles.filter(
+            (other) => other !== tile && other.z > tile.z
+          );
+
+          // Para cada ficha que cubre, calcular el área de superposición
+          coveringTiles.forEach((other) => {
+            const oW = 60; // usar tamaño fijo correcto
+            const oH = 75; // usar tamaño fijo correcto
+            const otherLayerOffset = other.layerOffset || 25; // usar offset correcto
+            const otherRect = {
+              left: other.x * other.xSpacing + other.offsetX,
+              top:
+                other.y * other.ySpacing +
+                other.offsetY +
+                other.z * otherLayerOffset,
+              right: other.x * other.xSpacing + other.offsetX + oW,
+              bottom:
+                other.y * other.ySpacing +
+                other.offsetY +
+                other.z * otherLayerOffset +
+                oH,
+            };
+
+            const overlapX = Math.max(
+              0,
+              Math.min(tileRect.right, otherRect.right) -
+                Math.max(tileRect.left, otherRect.left)
+            );
+            const overlapY = Math.max(
+              0,
+              Math.min(tileRect.bottom, otherRect.bottom) -
+                Math.max(tileRect.top, otherRect.top)
+            );
+
+            // Solo agregar si hay superposición real
+            if (overlapX > 0 && overlapY > 0) {
+              coveredArea += overlapX * overlapY;
+            }
+          });
+
+          // Asegurar que el área cubierta no sea mayor que el área total
+          coveredArea = Math.min(coveredArea, tileArea);
+
+          const visibleArea = tileArea - coveredArea;
+          const visibilityPercentage = Math.max(0, visibleArea / tileArea); // asegurar que no sea negativo
+          tile.free = visibilityPercentage >= FREE_TILE_VISIBILITY_THRESHOLD; // must be more than 50% visible
+
+          // Debug logging para verificar cálculos (comentar después de verificar)
+          if (Math.random() < 0.01) {
+            // log solo 1% de las fichas para no saturar consola
+            console.log(
+              `Tile at (${tile.x}, ${tile.y}, z${tile.z}): ${(
+                visibilityPercentage * 100
+              ).toFixed(1)}% visible, ${tile.free ? "FREE" : "BLOCKED"}`
+            );
+          }
+
+          tile.element.className = "tile" + (tile.free ? " free" : " blocked");
+          // Simplificar estados visuales de las fichas
+          if (tile.element) {
+            // Actualizar cursor basado en el estado
+            tile.element.style.cursor = tile.free ? "pointer" : "default";
+
+            if (tile.free) {
+              // Fichas libres: fondo blanco, borde negro
+              tile.element.style.background = "#ffffff";
+              tile.element.style.borderColor = "#000000";
+              tile.element.style.opacity = "1";
+            } else {
+              // Fichas bloqueadas: fondo gris, borde gris, semi-transparente
+              tile.element.style.background = "#f0f0f0";
+              tile.element.style.borderColor = "#999999";
+              tile.element.style.opacity = "0.6";
+            }
+          }
+        });
+        checkGameState();
+      }
+
+      function selectTile(tile) {
+        // Evitar doble selección de la misma ficha
+        if (selectedTileId === tile.id) {
+          return;
+        }
+
+        // Verificar que la ficha esté libre y sea seleccionable
+        if (
+          !tile.free ||
+          !tile.element ||
+          !tile.element.classList.contains("free")
+        )
+          return;
+
+        // Procesar la selección inmediatamente
+        selectedTileId = tile.id;
+
+        if (collectedTiles.length < 5) {
+          moveToCollected(tile);
+          moves++;
+          updateStats();
+          checkTrio();
+          if (collectedTiles.length === 5) {
+            checkCollectedForLoss();
+          }
+        }
+
+        // Limpiar la selección inmediatamente después del procesamiento
+        selectedTileId = null;
+      }
+
+      function moveToCollected(tile) {
+        tiles = tiles.filter((t) => t !== tile);
+        tile.element.remove();
+        collectedTiles.push(tile);
+        createCollectedTileElement(tile);
+        updateTileStatus();
+      }
+
+      function createCollectedTileElement(tile) {
+        const collectedArea = document.getElementById("collected-cards");
+        const element = document.createElement("div");
+        element.className = "collected-tile";
+        element.innerHTML = `<img src="${tile.imageUrl}" alt="Card">`;
+        element.style.left = `${
+          ((collectedTiles.length - 1) * (collectedArea.offsetWidth - 20)) / 5
+        }px`;
+        collectedArea.appendChild(element);
+        tile.collectedElement = element;
+      }
+
+      function checkTrio() {
+        const imageCounts = {};
+        collectedTiles.forEach((tile) => {
+          imageCounts[tile.imageUrl] = (imageCounts[tile.imageUrl] || 0) + 1;
+        });
+
+        for (const [imageUrl, count] of Object.entries(imageCounts)) {
+          if (count >= 3) {
+            const toRemove = collectedTiles
+              .filter((t) => t.imageUrl === imageUrl)
+              .slice(0, 3);
+            toRemove.forEach((tile) => {
+              tile.collectedElement.style.animation =
+                "trio-match 0.8s forwards";
+              setTimeout(() => tile.collectedElement.remove(), 800);
+            });
+            collectedTiles = collectedTiles.filter(
+              (t) => !toRemove.includes(t)
+            );
+            score += 50;
+            updateStats();
+            slideCollectedTilesLeft();
+            if (!isMuted && trioSound) {
+              playAudio(trioSound, 0.5);
+            }
+            window.FarcadeSDK.singlePlayer.actions.hapticFeedback();
+            checkVictory();
+            break;
+          }
+        }
+      }
+
+      function slideCollectedTilesLeft() {
+        const collectedArea = document.getElementById("collected-cards");
+        collectedTiles.forEach((tile, index) => {
+          tile.collectedElement.style.left = `${
+            (index * (collectedArea.offsetWidth - 20)) / 5
+          }px`;
+        });
+      }
+
+      function checkCollectedForLoss() {
+        const imageCounts = {};
+        collectedTiles.forEach((tile) => {
+          imageCounts[tile.imageUrl] = (imageCounts[tile.imageUrl] || 0) + 1;
+        });
+        const canMakeTrio = Object.values(imageCounts).some(
+          (count) => count >= 3
+        );
+        if (collectedTiles.length === 5 && !canMakeTrio) {
+          loseLife("No more moves possible!");
+        }
+      }
+
+      function shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [array[i], array[j]] = [array[j], array[i]];
+        }
+      }
+
+      function startTimer() {
+        clearInterval(timer);
+        const maxTime = BASE_TIME + (level - 1) * 10;
+        time = maxTime;
+        document.getElementById("time").textContent = time;
+        timer = setInterval(() => {
+          if (!timerFrozen) {
+            time--;
+            document.getElementById("time").textContent = time;
+            if (time <= 0) {
+              loseLife("Time ran out!");
+            }
+          }
+        }, 1000);
+      }
+
+      function freezeTime() {
+        if (timeFreezeUsed || timerFrozen) return;
+        timeFreezeUsed = true;
+        timerFrozen = true;
+        const btn = document.getElementById("freeze-time-btn");
+        if (btn) {
+          btn.classList.add("disabled");
+          btn.setAttribute("title", "Used");
+        }
+        showToast("Time frozen!");
+      }
+
+      function showHint() {
+        if (hintUsed) return;
+        hintUsed = true;
+        const hintBtn = document.getElementById("hint-btn");
+        if (hintBtn) {
+          hintBtn.classList.add("disabled");
+          hintBtn.setAttribute("title", "Used");
+        }
+        // Build stats across all tiles + collected
+        if (tiles.length === 0) {
+          showToast("No tiles");
+          return;
+        }
+        const stats = {};
+        tiles.forEach((t) => {
+          (stats[t.imageUrl] ||= { board: [], collected: 0 }).board.push(t);
+        });
+        collectedTiles.forEach((t) => {
+          (stats[t.imageUrl] ||= { board: [], collected: 0 }).collected++;
+        });
+        let candidates = Object.entries(stats)
+          .filter(([_, info]) => info.board.length + info.collected >= 3)
+          .map(([url, info]) => ({
+            url,
+            board: info.board,
+            boardCount: info.board.length,
+            collectedCount: info.collected,
+          }));
+        if (!candidates.length) {
+          showToast("No trio available");
+          return;
+        }
+        candidates.sort((a, b) => {
+          if (a.collectedCount !== b.collectedCount)
+            return b.collectedCount - a.collectedCount;
+          return b.boardCount - a.boardCount;
+        });
+        const chosen = candidates[0];
+        const need = Math.min(3 - chosen.collectedCount, chosen.boardCount);
+        if (need <= 0) {
+          showToast("No executable trio");
+          return;
+        }
+        const toTake = chosen.board.sort((a, b) => b.z - a.z).slice(0, need);
+        toTake.forEach((tile) => moveToCollected(tile));
+        checkTrio();
+        showToast("Trio removed");
+      }
+
+      function updateStats() {
+        document.getElementById("score").textContent = score;
+      }
+
+      function updateLivesDisplay() {
+        const hearts = document.querySelectorAll(".heart");
+        hearts.forEach((heart, index) => {
+          heart.className = "heart" + (index < lives ? " active" : " inactive");
+        });
+      }
+
+      function checkVictory() {
+        if (tiles.length === 0 && collectedTiles.length === 0) {
+          clearInterval(timer);
+          const maxTime = BASE_TIME + (level - 1) * 10;
+          const remainingTime = time;
+          // Increased level completion reward: base + time bonus scaled more
+          // Old: 1000 + remainingTime * 50
+          // New: 1500 base + remainingTime * 75 + level scaling
+          score += 1500 + remainingTime * 75 + (level - 1) * 200;
+          document.getElementById("game").style.display = "none";
+          document.getElementById("victory").style.display = "flex";
+          document.getElementById("victory-score").textContent = score;
+          document.getElementById("victory-time").textContent = maxTime - time;
+          document.getElementById("victory-moves").textContent = moves;
+          window.FarcadeSDK.singlePlayer.actions.hapticFeedback();
+        }
+      }
+
+      function checkGameState() {
+        // Solo verificar "no more moves possible" si el jugador ya tiene 5 cartas
+        if (collectedTiles.length < 5) {
+          return; // No verificar hasta que tenga 5 cartas
+        }
+
+        const freeTiles = tiles.filter((t) => t.free);
+        const canMakeTrio = freeTiles.some(
+          (t1) =>
+            freeTiles.some((t2) => t1 !== t2 && t1.imageUrl === t2.imageUrl) ||
+            collectedTiles.some(
+              (t) =>
+                t.imageUrl === t1.imageUrl &&
+                collectedTiles.filter((ct) => ct.imageUrl === t.imageUrl)
+                  .length >= 1
+            )
+        );
+
+        if (!canMakeTrio && freeTiles.length > 0) {
+          loseLife("No more moves possible!");
+        }
+      }
+
+      function loseLife(message) {
+        lives--;
+        clearInterval(timer);
+        document.getElementById("game").style.display = "none";
+        if (lives <= 0) {
+          window.FarcadeSDK.singlePlayer.actions.gameOver({ score: score });
+          if (!isMuted && backgroundMusic) {
+            pauseAudio(backgroundMusic);
+            backgroundMusic.currentTime = 0;
+          }
+        } else {
+          document.getElementById("lose-screen").style.display = "flex";
+          document.getElementById("lose-message").textContent = message;
+        }
+        updateLivesDisplay();
+      }
+
+      function retryLevel() {
+        document.getElementById("lose-screen").style.display = "none";
+        document.getElementById("game").style.display = "flex";
+        timerFrozen = false; // Resetear el estado de pausa del timer al reintentar el nivel
+        generateBoard(level);
+        startTimer();
+      }
+
+      function showToast(message) {
+        const toast = document.getElementById("toast");
+        toast.textContent = message;
+        toast.style.opacity = "1";
+        setTimeout(() => {
+          toast.style.opacity = "0";
+        }, 2000);
+      }
+
+      function nextLevel() {
+        level++;
+        // Avance infinito: siempre generar el siguiente nivel
+        document.getElementById("victory").style.display = "none";
+        document.getElementById("game").style.display = "flex";
+        timerFrozen = false; // Resetear el estado de pausa del timer al cambiar de nivel
+        generateBoard(level);
+        startTimer();
+      }
+
+      function backToMenu() {
+        clearInterval(timer);
+        document.getElementById("game").style.display = "none";
+        document.getElementById("victory").style.display = "none";
+        document.getElementById("lose-screen").style.display = "none";
+        document.getElementById("menu").style.display = "flex";
+        level = 1;
+        lives = 3;
+        score = 0;
+        updateLivesDisplay();
+        if (!isMuted && backgroundMusic) {
+          pauseAudio(backgroundMusic);
+          backgroundMusic.currentTime = 0;
+        }
+      }
+
+      // ---- Rotación de música de fondo ----
+      function queueNextBackgroundTrack(autoPlay = false) {
+        if (!backgroundPlaylist.length || !backgroundMusic) return;
+        currentTrackIndex = (currentTrackIndex + 1) % backgroundPlaylist.length;
+        const nextSrc = backgroundPlaylist[currentTrackIndex];
+        if (backgroundMusic.src !== nextSrc) {
+          backgroundMusic.src = nextSrc;
+        }
+        backgroundMusic.load();
+        if (autoPlay) {
+          playAudio(backgroundMusic, 0.3);
+        }
+      }
+
+      // Al terminar una pista, pasar a la siguiente automáticamente
+      if (backgroundMusic) {
+        backgroundMusic.removeAttribute("loop");
+        backgroundMusic.addEventListener("ended", () => {
+          if (!isMuted) {
+            queueNextBackgroundTrack(true);
+          }
+        });
+      }
+      // -------------------------------------
+
+      document.addEventListener(
+        "touchstart",
+        (e) => {
+          const touch = e.touches[0];
+
+          // Buscar la ficha más específica en el punto de toque
+          let targetTile = null;
+          let highestZ = -1;
+
+          // Buscar todas las fichas que contienen el punto de toque
+          tiles.forEach((tile) => {
+            if (!tile.element) return;
+
+            const rect = tile.element.getBoundingClientRect();
+            const x = touch.clientX;
+            const y = touch.clientY;
+
+            // Expandir el área de toque con un margen de 8px para mejor precisión
+            const margin = 8;
+
+            // Verificar si el toque está dentro de los límites expandidos de la ficha
+            if (
+              x >= rect.left - margin &&
+              x <= rect.right + margin &&
+              y >= rect.top - margin &&
+              y <= rect.bottom + margin
+            ) {
+              // Priorizar fichas con mayor z (más arriba)
+              if (tile.z > highestZ && tile.free) {
+                highestZ = tile.z;
+                targetTile = tile;
+              }
+            }
+          });
+
+          // Si encontramos una ficha válida, procesarla
+          if (targetTile) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            // Procesar la selección inmediatamente
+            selectTile(targetTile);
+          }
+        },
+        { passive: false }
+      );
+
+      // Attach events
+      document.addEventListener("DOMContentLoaded", () => {
+        // --- Loader inicial (primera carga de la página) ---
+        if (!window._splashShown) {
+          window._splashShown = true; // evita repeticiones en esta sesión
+          const overlay = document.getElementById("loader-overlay");
+          const canvas = document.getElementById("loader-canvas");
+          const studioText = document.getElementById("studio-text");
+          const SPRITE_URL =
+            "https://lqy3lriiybxcejon.public.blob.vercel-storage.com/zS0QCi0PfUjO/chuckytes2t-a9Hz89icXVQVgOkchS0ssNllYtJfiu.png?RB0F";
+          const COIN_URL =
+            "https://lqy3lriiybxcejon.public.blob.vercel-storage.com/zS0QCi0PfUjO/coin-recieved-230517-8iUcgtcaKrJnZepqHDAwpsU1PvqoJ0.mp3?eRCU";
+
+          if (overlay && canvas && studioText) {
+            overlay.style.display = "flex"; // visible desde el inicio para evitar flash
+            // Ocultar el menú mientras el loader está activo para evitar parpadeos
+            const menu = document.getElementById("menu");
+            if (menu) menu.style.visibility = "hidden";
+            // Pre-cargar el sprite antes de animar
+            const img = new Image();
+            img.onload = () => {
+              // Animación manual por frames en canvas (sin desplazamientos)
+              const ctx = canvas.getContext("2d");
+              if (ctx && ctx.imageSmoothingEnabled !== undefined) {
+                ctx.imageSmoothingEnabled = false;
+              }
+              const FRAME_W = 241;
+              const FRAME_H = 345;
+              const FRAME_COUNT = 18;
+              const DURATION_MS = 2800; // ~2.8s total (no muy rápido)
+              const FRAME_MS = Math.floor(DURATION_MS / FRAME_COUNT);
+              let frame = 0;
+
+              // (Se ha eliminado el sonido para compatibilidad con la plataforma)
+
+              const draw = () => {
+                ctx.clearRect(0, 0, FRAME_W, FRAME_H);
+                ctx.drawImage(
+                  img,
+                  frame * FRAME_W,
+                  0,
+                  FRAME_W,
+                  FRAME_H,
+                  0,
+                  0,
+                  FRAME_W,
+                  FRAME_H
+                );
+              };
+
+              draw();
+
+              const interval = setInterval(() => {
+                if (frame < FRAME_COUNT - 1) {
+                  frame += 1;
+                  draw();
+                } else {
+                  clearInterval(interval);
+                  // Mostrar el texto y luego ocultar overlay automáticamente
+                  studioText.classList.add("show");
+                  setTimeout(() => {
+                    studioText.classList.remove("show");
+                    setTimeout(() => {
+                      overlay.style.display = "none";
+                      const menu = document.getElementById("menu");
+                      if (menu) menu.style.visibility = "visible";
+                    }, 600);
+                  }, 1200);
+                }
+              }, FRAME_MS);
+            };
+            img.src = SPRITE_URL;
+          }
+        }
+
+        const freezeBtn = document.getElementById("freeze-time-btn");
+        if (freezeBtn) freezeBtn.addEventListener("click", freezeTime);
+        const hintBtn = document.getElementById("hint-btn");
+        if (hintBtn) hintBtn.addEventListener("click", showHint);
+
+        // Event delegation para el canvas del juego para capturar clics perdidos
+        const canvas = document.getElementById("game-canvas");
+        if (canvas) {
+          canvas.addEventListener("click", (e) => {
+            // Buscar la ficha en el punto de clic
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            // Encontrar la ficha más alta (z mayor) en ese punto
+            let targetTile = null;
+            let highestZ = -1;
+
+            tiles.forEach((tile) => {
+              if (!tile.element || !tile.free) return;
+
+              const tileRect = tile.element.getBoundingClientRect();
+              const canvasRect = canvas.getBoundingClientRect();
+
+              // Convertir coordenadas de la ficha relativas al canvas
+              const tileX = tileRect.left - canvasRect.left;
+              const tileY = tileRect.top - canvasRect.top;
+              const tileRight = tileX + tileRect.width;
+              const tileBottom = tileY + tileRect.height;
+
+              // Verificar si el clic está dentro de la ficha
+              if (
+                x >= tileX &&
+                x <= tileRight &&
+                y >= tileY &&
+                y <= tileBottom
+              ) {
+                if (tile.z > highestZ) {
+                  highestZ = tile.z;
+                  targetTile = tile;
+                }
+              }
+            });
+
+            if (targetTile) {
+              selectTile(targetTile);
+            }
+          });
+        }
+      });
+    </script>
+  </body>
+</html>

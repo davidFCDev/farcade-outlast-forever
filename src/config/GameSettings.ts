@@ -1,6 +1,23 @@
 /**
- * Game Settings for Infinity Zombie Shooter
- * Centralized configuration for all tunable game parameters
+ * Game Settings for Infinity Zombie Shooter  // Tilemap configuration
+  tilemap: {
+    width: 12, // tiles in map width
+    height: 18, // tiles in map height
+    tileWidth: 32, // pixel width of each tile
+    tileHeight: 32, // pixel height of each tile
+    mapPixelWidth: 384, // 12 * 32
+    mapPixelHeight: 576, // 18 * 32
+    scaleX: 720 / 384, // Scale to fit screen width (1.875)
+    scaleY: 1080 / 576, // Scale to fit screen height (1.875)
+    key: "zombie-map",
+    // Fallback for local development
+    jsonPath: "assets/ZombieMap.json",
+    // External URL for production (GitHub Raw)
+    jsonUrl:
+      "https://raw.githubusercontent.com/davidFCDev/farcade-outlast-forever/refs/heads/main/ZombieMap_optimized.json",
+    tilesetKey: "wasteland-tiles",
+    tilesetPath: "https://lqy3lriiybxcejon.public.blob.vercel-storage.com/ee72a5ff-8484-4376-9f4e-310388e7213f/Wasteland_Tileset_32x32-TTJWbe3kfEBgjxvJ9IkiOuDZhSGLJ6.png?wtEY",
+  },figuration for all tunable game parameters
  */
 
 export const GameSettings = {
@@ -60,11 +77,13 @@ export const GameSettings = {
     scaleY: 1080 / 576, // Scale to fit screen height (1.875)
     key: "zombie-map",
     // Fallback for local development
-    jsonPath: "assets/ZombieMap.json", 
-    // External URL for production (replace with your hosted JSON URL)
-    jsonUrl: "REPLACE_WITH_YOUR_JSON_URL_HERE", // 🔥 REEMPLAZA ESTA URL
+    jsonPath: "assets/ZombieMap.json",
+    // External URL for production (GitHub Raw)
+    jsonUrl:
+      "https://raw.githubusercontent.com/davidFCDev/farcade-outlast-forever/refs/heads/main/ZombieMap_optimized.json",
     tilesetKey: "wasteland-tiles",
-    tilesetPath: "assets/Wasteland_Tileset_32x32.png",
+    tilesetPath:
+      "https://lqy3lriiybxcejon.public.blob.vercel-storage.com/ee72a5ff-8484-4376-9f4e-310388e7213f/Wasteland_Tileset_32x32-TTJWbe3kfEBgjxvJ9IkiOuDZhSGLJ6.png?wtEY",
   },
 
   // Game-specific settings for the zombie shooter
@@ -234,9 +253,9 @@ export const GameSettings = {
         },
       },
       zombie3: {
-        speed: 200, // Reduced speed for better balance (was 240)
+        speed: 170, // Further reduced speed for better balance (was 200, originally 240)
         maxHealth: 28, // Increased health slightly (was 25)
-        spawnWeight: 15, // 15% spawn rate (reduced from 20%)
+        spawnWeight: 10, // 10% spawn rate (reduced from 15% to reduce frequency)
         explosionDamage: 8, // Much higher explosion damage (was 4)
         explosionRadius: 100, // Area damage radius in pixels
         scale: 2, // Double the size
@@ -389,13 +408,13 @@ export const GameSettings = {
           spriteRow: 0, // Primera fila
           spriteCol: 0, // Primera columna
           damage: 16, // Doble daño (era 8, ahora 16)
-          fireRate: 1200, // Reducido velocidad (era 1000, ahora 1200)
+          fireRate: 1400, // Reducido velocidad (era 1000, ahora 1200)
           projectileCount: 1,
           spread: 0, // Sin spread (precisión)
           projectileSpeed: 750, // Reducido velocidad del proyectil (era 900, ahora 750)
           isDefault: false,
           piercing: true, // NUEVA: Puede atravesar zombies
-          maxPiercing: 5, // NUEVA: Máximo 5 zombies por disparo
+          maxPiercing: 3, // NUEVA: Máximo 5 zombies por disparo
         },
         rocketLauncher: {
           name: "Lanzacohetes",
@@ -407,7 +426,7 @@ export const GameSettings = {
           spread: 0,
           projectileSpeed: 400, // Cohete más lento
           explosionRadius: 100, // Daño en área
-          explosionDamage: 4, // Daño de explosión
+          explosionDamage: 3, // Daño de explosión reducido ligeramente (era 4)
           isDefault: false,
         },
       },

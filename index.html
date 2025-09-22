@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>infinity-zombie</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@farcade/game-sdk@latest/dist/index.min.js"></script>
     <style>
       body {
         margin: 0;
@@ -13,7 +14,7 @@
         justify-content: center;
         align-items: center;
       }
-      
+
       canvas {
         outline: none;
         margin: 0;
@@ -25,17 +26,17 @@
       // Development only - build script replaces this entire block
       if (import.meta.env.DEV) {
         // Load dev styles
-        const link = document.createElement('link');
-        link.rel = 'stylesheet';
-        link.href = '/.remix/main.css';
+        const link = document.createElement("link");
+        link.rel = "stylesheet";
+        link.href = "/.remix/main.css";
         document.head.appendChild(link);
-        
+
         if (window === window.top) {
           // Top-level window - show React dashboard (new implementation)
-          import('./.remix/index.tsx');
+          import("./.remix/index.tsx");
         } else {
           // Iframe - show game with SDK mock
-          import('/src/main.ts');
+          import("/src/main.ts");
         }
       }
     </script>

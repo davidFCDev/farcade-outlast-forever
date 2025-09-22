@@ -98,6 +98,7 @@ export class GameScene extends Phaser.Scene {
 
   // Zombie4 boss system
   private lastZombie4Spawn: number = 0; // Track when last zombie4 was spawned
+  private zombie4SpawnCount: number = 0; // Track how many zombie4 bosses have been spawned
   private zombie4AuraGraphics: Map<
     Phaser.GameObjects.Sprite,
     Phaser.GameObjects.Graphics
@@ -113,7 +114,6 @@ export class GameScene extends Phaser.Scene {
   private musicTracks: Phaser.Sound.BaseSound[] = [];
 
   private projectiles!: Phaser.Physics.Arcade.Group;
-  private gameOverCalled: boolean = false; // Prevent multiple game over calls
 
   constructor() {
     super({ key: "GameScene" });
@@ -359,6 +359,12 @@ export class GameScene extends Phaser.Scene {
       GameSettings.tilemap.tilesetKey
     );
     debugLog("🖼️ Tileset added:", tileset);
+    debugLog("🔍 Tileset validation:", {
+      tileset: tileset,
+      isNull: tileset === null,
+      isUndefined: tileset === undefined,
+      type: typeof tileset,
+    });
 
     if (tileset) {
       debugLog("✅ Tileset is valid, creating layers...");
@@ -420,17 +426,7 @@ export class GameScene extends Phaser.Scene {
       }
     } else {
       debugLog("❌ Tileset is null or undefined");
-
-      // Create a fallback visual to test if rendering works
-      const testRect = this.add.rectangle(
-        GameSettings.canvas.width / 2,
-        GameSettings.canvas.height / 2,
-        200,
-        200,
-        0x00ff00
-      );
-      testRect.setDepth(0);
-      debugLog("🟢 Test rectangle created as fallback");
+      // No fallback visual needed - tilemap should work from external URL
     }
 
     // Create game objects
@@ -441,6 +437,7 @@ export class GameScene extends Phaser.Scene {
     this.createPlayer();
     this.createBullets();
     this.createWeaponSystem();
+    this.ensureDefaultWeaponSelected();
     this.createZombies();
     this.createPowerPortals();
     this.createSideWalls();
@@ -448,6 +445,15 @@ export class GameScene extends Phaser.Scene {
     this.setupControls();
     this.setupCollisions();
     this.setupMusic();
+
+    // Setup responsive resizing for taller screens
+    this.setupResponsiveResize();
+
+    // Notify SDK that game is ready
+    this.notifyGameReady();
+
+    // Set up SDK event listeners
+    this.setupSDKEventListeners();
   }
 
   update(): void {
@@ -863,11 +869,318 @@ export class GameScene extends Phaser.Scene {
   }
 
   private restartGame(): void {
-    // Reset game state - implementaremos esto más adelante
-    console.log("Game restarted");
+    console.log("🔄 Restarting game - resetting all game state");
+
+    // Reset game state variables
+    this.resetGameState();
+
+    // Clean up all game objects
+    this.cleanupAllGameObjects();
+
+    // Reset UI elements
+    this.resetUIElements();
+
+    // Recreate the game
+    this.scene.restart();
 
     // Focus the canvas to enable keyboard input
     this.game.canvas.focus();
+  }
+
+  private resetGameState(): void {
+    // Reset player state
+    this.playerHealth = GameSettings.game.health.player.maxHealth;
+    this.currentPlayerState = "idle";
+    this.isMovingLeft = false;
+    this.isMovingRight = false;
+    this.lastFired = 0;
+
+    // Reset game progress
+    this.score = 0;
+    this.zombiesKilled = 0;
+    this.difficultyLevel = 1;
+    this.gameStartTime = 0;
+    this.currentSpawnRate = GameSettings.game.zombies.spawnRate;
+    this.currentMaxZombies = GameSettings.game.zombies.maxOnScreen;
+    this.lastHordeTime = 0;
+    this.lastZombieSpawn = 0;
+    this.lastZombie4Spawn = 0;
+    this.zombie4SpawnCount = 0;
+
+    // Reset weapon system
+    this.currentWeapon = "machineGun"; // Default weapon
+
+    // Reset power portals system
+    this.portalsActivated = 0;
+    this.currentPortalLine = 0;
+    this.portalLineUsed = false;
+
+    // Reset emergency button
+    this.emergencyButtonUsed = false;
+    this.resetEmergencyButton();
+
+    // Reset zombie systems
+    this.zombieDataMap.clear();
+    this.zombie2ShieldStates.clear();
+    this.zombie2ShieldTimers.clear();
+    this.zombie4AuraGraphics.clear();
+    this.zombie2ShieldGraphics.clear();
+
+    // Reset music system
+    this.currentMusicIndex = 0;
+
+    console.log("✅ Game state reset completed");
+  }
+
+  private cleanupAllGameObjects(): void {
+    // Clean up timers
+    if (this.zombieSpawnTimer) {
+      this.zombieSpawnTimer.destroy();
+    }
+    if (this.portalSpawnTimer) {
+      this.portalSpawnTimer.destroy();
+    }
+
+    // Clean up all zombies and their health bars
+    if (this.zombies) {
+      this.zombies.children.entries.forEach((zombie) => {
+        const gameObject = zombie as Phaser.GameObjects.Sprite;
+        // Clean up health bars
+        const healthBar = (gameObject as any).healthBar;
+        const healthBarBg = (gameObject as any).healthBarBg;
+        if (healthBar) healthBar.destroy();
+        if (healthBarBg) healthBarBg.destroy();
+
+        // Clean up zombie2 shield graphics
+        const shieldGraphics = this.zombie2ShieldGraphics.get(gameObject);
+        if (shieldGraphics) {
+          shieldGraphics.destroy();
+          this.zombie2ShieldGraphics.delete(gameObject);
+        }
+
+        // Clean up zombie4 aura graphics
+        const auraGraphics = this.zombie4AuraGraphics.get(gameObject);
+        if (auraGraphics) {
+          auraGraphics.destroy();
+          this.zombie4AuraGraphics.delete(gameObject);
+        }
+      });
+      this.zombies.clear(true, true);
+    }
+
+    // Clean up all bullets
+    if (this.bullets) {
+      this.bullets.children.entries.forEach((bullet) => {
+        const gameObject = bullet as Phaser.GameObjects.Sprite;
+        // Clean up trail particles if they exist
+        if ((gameObject as any).trailParticles) {
+          (gameObject as any).trailParticles.destroy();
+        }
+      });
+      this.bullets.clear(true, true);
+    }
+
+    // Clean up all projectiles
+    if (this.projectiles) {
+      this.projectiles.children.entries.forEach((projectile) => {
+        const gameObject = projectile as Phaser.GameObjects.Sprite;
+        // Clean up trail particles if they exist
+        if ((gameObject as any).trailParticles) {
+          (gameObject as any).trailParticles.destroy();
+        }
+      });
+      this.projectiles.clear(true, true);
+    }
+
+    // Clean up all power portals
+    if (this.powerPortals) {
+      this.powerPortals.children.entries.forEach((portal: any) => {
+        const portalGraphics = portal as Phaser.GameObjects.Graphics;
+        const valueText = (portalGraphics as any).valueText;
+        if (valueText && valueText.active) {
+          valueText.destroy();
+        }
+      });
+      this.powerPortals.clear(true, true);
+    }
+
+    console.log("🧹 All game objects cleaned up");
+  }
+
+  private resetUIElements(): void {
+    // Stop current music if playing
+    if (this.currentMusicTrack && this.currentMusicTrack.isPlaying) {
+      this.currentMusicTrack.stop();
+      this.currentMusicTrack = null;
+    }
+
+    console.log("🎵 UI elements reset");
+  }
+
+  private resetEmergencyButton(): void {
+    if (this.emergencyButton) {
+      // Reset to initial frame (unpressed)
+      this.emergencyButton.setFrame(0);
+      // Remove any tint
+      this.emergencyButton.clearTint();
+      // Re-enable interaction
+      this.emergencyButton.setInteractive({ useHandCursor: true });
+
+      console.log("🔴 Emergency button reset to initial state");
+    }
+  }
+
+  private resetWeaponSelector(): void {
+    if (this.weaponOutlines) {
+      // Hide all weapon outlines first
+      this.weaponOutlines.forEach((outline, weaponKey) => {
+        outline.setVisible(false);
+      });
+
+      // Show outline for default weapon (machineGun)
+      const defaultOutline = this.weaponOutlines.get(this.currentWeapon);
+      if (defaultOutline) {
+        const uiConfig = GameSettings.game.weapons.ui;
+        defaultOutline.clear();
+        defaultOutline.lineStyle(3, uiConfig.selectedOutlineColor);
+
+        // Find the weapon icon to get its position
+        const weaponIcon = this.weaponIcons.children.entries.find(
+          (icon: any) => icon.weaponKey === this.currentWeapon
+        ) as Phaser.GameObjects.Image;
+
+        if (weaponIcon) {
+          // Use rounded corners for the selection border
+          const cornerRadius = 4;
+          defaultOutline.strokeRoundedRect(
+            weaponIcon.x - (weaponIcon.width * uiConfig.scale) / 2,
+            weaponIcon.y - (weaponIcon.height * uiConfig.scale) / 2,
+            weaponIcon.width * uiConfig.scale,
+            weaponIcon.height * uiConfig.scale,
+            cornerRadius
+          );
+        }
+
+        defaultOutline.setVisible(true);
+        console.log(
+          `🔫 Weapon selector reset - default weapon '${this.currentWeapon}' selected`
+        );
+      }
+
+      // Also reset the player weapon visual
+      if (this.playerWeapon) {
+        this.changePlayerWeapon(this.currentWeapon);
+      }
+    }
+  }
+
+  private ensureDefaultWeaponSelected(): void {
+    // Make sure the default weapon is properly selected visually
+    this.selectWeapon(this.currentWeapon);
+    console.log(
+      `🔫 Default weapon '${this.currentWeapon}' ensured as selected`
+    );
+  }
+
+  private showZombie4Message(): void {
+    // Create dramatic message for zombie4 boss appearance (without dark overlay)
+    const centerX = GameSettings.canvas.width / 2;
+    const centerY = GameSettings.canvas.height / 2 - 100;
+
+    // Create main warning text
+    const warningText = this.add.text(
+      centerX,
+      centerY,
+      "DEATH WALKS AMONG US",
+      {
+        fontFamily: '"Pixelify Sans", monospace, Arial',
+        fontSize: "48px",
+        color: "#ff0000",
+        fontStyle: "bold",
+        stroke: "#000000",
+        strokeThickness: 4,
+      }
+    );
+    warningText.setOrigin(0.5);
+    warningText.setDepth(10001);
+
+    // Create subtitle text
+    const subtitleText = this.add.text(
+      centerX,
+      centerY + 60,
+      "THE GIANT AWAKENS",
+      {
+        fontFamily: '"Pixelify Sans", monospace, Arial',
+        fontSize: "24px",
+        color: "#ffff00",
+        fontStyle: "bold",
+        stroke: "#000000",
+        strokeThickness: 3,
+      }
+    );
+    subtitleText.setOrigin(0.5);
+    subtitleText.setDepth(10001);
+
+    // Add pulsing effect to main text
+    this.tweens.add({
+      targets: warningText,
+      scaleX: 1.1,
+      scaleY: 1.1,
+      duration: 500,
+      yoyo: true,
+      repeat: 2,
+      ease: "Power2.easeInOut",
+    });
+
+    // Add shake effect to subtitle
+    this.tweens.add({
+      targets: subtitleText,
+      x: subtitleText.x + 5,
+      duration: 100,
+      yoyo: true,
+      repeat: 6,
+      ease: "Power2.easeInOut",
+    });
+
+    // Fade out and remove after 3 seconds
+    this.time.delayedCall(3000, () => {
+      this.tweens.add({
+        targets: [warningText, subtitleText],
+        alpha: 0,
+        duration: 500,
+        ease: "Power2.easeOut",
+        onComplete: () => {
+          warningText.destroy();
+          subtitleText.destroy();
+        },
+      });
+    });
+
+    console.log("💀 'DEATH WALKS AMONG US' message displayed for Zombie4 boss");
+  }
+
+  private getNextZombie4SpawnKills(): number {
+    // Exponential spawn pattern: 100, 300 (100+200), 600 (300+300), 1000 (600+400), etc.
+
+    if (this.zombie4SpawnCount === 0) {
+      return 100; // First zombie4 at 100 kills
+    } else if (this.zombie4SpawnCount === 1) {
+      return 300; // Second zombie4 at 300 kills (100 + 200)
+    } else if (this.zombie4SpawnCount === 2) {
+      return 600; // Third zombie4 at 600 kills (300 + 300)
+    } else {
+      // After the third: 1000 (600+400), 1500 (1000+500), 2100 (1500+600), etc.
+      let target = 600; // Start from 3rd spawn target
+      for (let i = 3; i <= this.zombie4SpawnCount; i++) {
+        target += (i + 1) * 100; // 400, 500, 600, 700, etc.
+      }
+      return target;
+    }
+  }
+
+  private shouldSpawnMultipleZombie4(): boolean {
+    // From the 3rd zombie4 onwards (spawnCount >= 2), spawn 2 at once
+    return this.zombie4SpawnCount >= 2;
   }
 
   private createPlayerAnimations(): void {
@@ -1284,33 +1597,61 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private createZombieSprite(x: number, y: number): void {
+  private createZombieSprite(
+    x: number,
+    y: number,
+    forceType?: "zombie1" | "zombie2" | "zombie3" | "zombie4"
+  ): void {
     let zombieType: "zombie1" | "zombie2" | "zombie3" | "zombie4";
 
-    // Check if zombie4 boss should spawn (every 100 kills)
-    const zombie4Config = GameSettings.game.zombies.zombie4;
-    const killsSinceLastBoss = this.zombiesKilled - this.lastZombie4Spawn;
-
-    if (killsSinceLastBoss >= zombie4Config.specialSpawn.killInterval) {
-      // Spawn zombie4
-      zombieType = "zombie4";
-      this.lastZombie4Spawn = this.zombiesKilled;
-
-      console.log(`🧟 Giant Zombie4 spawned! Kills: ${this.zombiesKilled}`);
+    // If a specific type is forced (like for second zombie4), use it
+    if (forceType) {
+      zombieType = forceType;
     } else {
-      // Normal zombie spawn logic
-      const zombie1Weight = GameSettings.game.zombies.zombie1.spawnWeight;
-      const zombie2Weight = GameSettings.game.zombies.zombie2.spawnWeight;
-      const zombie3Weight = GameSettings.game.zombies.zombie3.spawnWeight;
-      const totalWeight = zombie1Weight + zombie2Weight + zombie3Weight;
-      const random = Phaser.Math.Between(1, totalWeight);
+      // Check if zombie4 boss should spawn using exponential pattern
+      const nextZombie4Target = this.getNextZombie4SpawnKills();
 
-      if (random <= zombie1Weight) {
-        zombieType = "zombie1";
-      } else if (random <= zombie1Weight + zombie2Weight) {
-        zombieType = "zombie2";
+      if (this.zombiesKilled >= nextZombie4Target) {
+        // Spawn zombie4
+        zombieType = "zombie4";
+        this.zombie4SpawnCount++;
+
+        console.log(
+          `🧟 Giant Zombie4 #${this.zombie4SpawnCount} spawned! Kills: ${this.zombiesKilled}`
+        );
+        console.log(
+          `📊 Next Zombie4 will spawn at: ${this.getNextZombie4SpawnKills()} kills`
+        );
+
+        // Show dramatic message for zombie4 appearance
+        this.showZombie4Message();
+
+        // If we should spawn multiple zombie4s, spawn the second one from the opposite side
+        if (this.shouldSpawnMultipleZombie4()) {
+          this.time.delayedCall(500, () => {
+            // Calculate opposite side position
+            const oppositeX = this.sys.game.canvas.width - x;
+            this.createZombieSprite(oppositeX, y, "zombie4"); // Force zombie4 type
+            console.log(
+              `🧟 Second Zombie4 spawned from opposite side! X: ${oppositeX}`
+            );
+          });
+        }
       } else {
-        zombieType = "zombie3";
+        // Normal zombie spawn logic
+        const zombie1Weight = GameSettings.game.zombies.zombie1.spawnWeight;
+        const zombie2Weight = GameSettings.game.zombies.zombie2.spawnWeight;
+        const zombie3Weight = GameSettings.game.zombies.zombie3.spawnWeight;
+        const totalWeight = zombie1Weight + zombie2Weight + zombie3Weight;
+        const random = Phaser.Math.Between(1, totalWeight);
+
+        if (random <= zombie1Weight) {
+          zombieType = "zombie1";
+        } else if (random <= zombie1Weight + zombie2Weight) {
+          zombieType = "zombie2";
+        } else {
+          zombieType = "zombie3";
+        }
       }
     }
 
@@ -2961,6 +3302,9 @@ export class GameScene extends Phaser.Scene {
     const explosionRadius = rocketConfig.explosionRadius;
     const explosionDamage = rocketConfig.explosionDamage || rocketConfig.damage;
 
+    // Trigger haptic feedback for rocket explosion
+    this.triggerHapticFeedback();
+
     // Create explosion sprite animation at rocket position
     const explosion = this.add.sprite(
       rocketSprite.x,
@@ -3083,6 +3427,9 @@ export class GameScene extends Phaser.Scene {
     const zombieSprite = zombie as Phaser.GameObjects.Sprite;
     const zombieType = (zombieSprite as any).zombieType || "zombie1";
 
+    // Trigger haptic feedback for player taking damage
+    this.triggerHapticFeedback();
+
     // Special handling for zombie2 tank explosion
     if (zombieType === "zombie2") {
       // Check if zombie2 still has shield - explosive damage
@@ -3127,17 +3474,20 @@ export class GameScene extends Phaser.Scene {
     // Kill the zombie that hit the player
     this.killZombie(zombieSprite);
 
-    // Check if player is dead
+    // Check if player is dead - trigger game over
     if (this.playerHealth <= 0) {
       this.playerHealth = 0;
       this.updatePlayerHealthBar();
-      this.gameOver();
+      this.handleGameOver();
     }
   }
 
   private killZombie(zombie: Phaser.GameObjects.Sprite): void {
     // Mark zombie as dead immediately to prevent further hits
     (zombie as any).isDead = true;
+
+    // Trigger haptic feedback for zombie kill
+    this.triggerHapticFeedback();
 
     // IMMEDIATELY remove from physics group to stop bullet collisions
     this.zombies.remove(zombie);
@@ -3362,69 +3712,6 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  private gameOver(): void {
-    // Prevent multiple game over calls
-    if (this.gameOverCalled) return;
-    this.gameOverCalled = true;
-
-    // Stop zombie spawning
-    if (this.zombieSpawnTimer) {
-      this.zombieSpawnTimer.destroy();
-    }
-
-    // Stop all game systems
-    this.physics.pause();
-
-    // Play player death animation
-    this.player.play("player-death");
-
-    // Stop player movement
-    const playerBody = this.player.body as Phaser.Physics.Arcade.Body;
-    if (playerBody) {
-      playerBody.setVelocity(0, 0);
-    }
-
-    // Create game over overlay
-    const gameOverBg = this.add.graphics();
-    gameOverBg.fillStyle(0x000000, 0.8);
-    gameOverBg.fillRect(
-      0,
-      0,
-      GameSettings.canvas.width,
-      GameSettings.canvas.height
-    );
-    gameOverBg.setDepth(3000);
-
-    // Game Over text
-    const gameOverText = this.add.text(
-      GameSettings.canvas.width / 2,
-      GameSettings.canvas.height / 2 - 50,
-      "GAME OVER",
-      {
-        fontFamily: "Pixelify Sans, Arial",
-        fontSize: "48px",
-        color: "#FF0000",
-        fontStyle: "bold",
-      }
-    );
-    gameOverText.setOrigin(0.5, 0.5);
-    gameOverText.setDepth(3001);
-
-    // Final score text
-    const finalScoreText = this.add.text(
-      GameSettings.canvas.width / 2,
-      GameSettings.canvas.height / 2 + 20,
-      `Final Score: ${this.score}`,
-      {
-        fontFamily: "Pixelify Sans, Arial",
-        fontSize: "24px",
-        color: "#FFFFFF",
-      }
-    );
-    finalScoreText.setOrigin(0.5, 0.5);
-    finalScoreText.setDepth(3001);
-  }
-
   private evaluateMathExpression(
     expression: string,
     currentPlayerCount: number
@@ -3492,6 +3779,9 @@ export class GameScene extends Phaser.Scene {
     const playerSprite = player as Phaser.GameObjects.Sprite;
     const portalGraphics = portal as Phaser.GameObjects.Graphics;
 
+    // Trigger haptic feedback for portal interaction
+    this.triggerHapticFeedback();
+
     console.log(`🎯 PORTAL COLLISION DETECTED!`);
     console.log(
       `  Player position: (${playerSprite.x.toFixed(
@@ -3557,10 +3847,10 @@ export class GameScene extends Phaser.Scene {
       `🧮 Math evaluation: ${mathOperation.expression} with ${this.currentPlayerCount} players = ${newPlayerCount}`
     );
 
-    // Check for instant death (skull)
+    // Check for instant death (skull) - trigger game over
     if (newPlayerCount === -999) {
-      console.log(`💀 SKULL PORTAL HIT! INSTANT DEATH!`);
-      this.gameOver();
+      console.log(`💀 SKULL PORTAL HIT! Game Over!`);
+      this.handleGameOver();
       return;
     }
 
@@ -3953,11 +4243,11 @@ export class GameScene extends Phaser.Scene {
         this.player.clearTint();
       });
 
-      // Check if player died
+      // Check if player died - trigger game over
       if (this.playerHealth <= 0) {
         this.playerHealth = 0;
         this.updatePlayerHealthBar();
-        this.gameOver();
+        this.handleGameOver();
         return;
       }
     } else {
@@ -4068,11 +4358,11 @@ export class GameScene extends Phaser.Scene {
         this.player.clearTint();
       });
 
-      // Check if player died
+      // Check if player died - trigger game over
       if (this.playerHealth <= 0) {
         this.playerHealth = 0;
         this.updatePlayerHealthBar();
-        this.gameOver();
+        this.handleGameOver();
         return;
       }
     }
@@ -4355,11 +4645,18 @@ export class GameScene extends Phaser.Scene {
       this.musicTracks.push(sound);
     });
 
-    // Start playing the first track
+    // Randomize starting track index to alternate songs each game load
+    this.currentMusicIndex = Math.floor(
+      Math.random() * this.musicTracks.length
+    );
+
+    // Start playing the randomly selected track
     this.playNextTrack();
 
     debugLog(
-      `🎵 Music system initialized with ${this.musicTracks.length} tracks`
+      `🎵 Music system initialized with ${
+        this.musicTracks.length
+      } tracks, starting with track ${this.currentMusicIndex + 1}`
     );
   }
 
@@ -4400,6 +4697,458 @@ export class GameScene extends Phaser.Scene {
     if (this.currentMusicTrack && this.currentMusicTrack.isPlaying) {
       this.currentMusicTrack.stop();
     }
+  }
+
+  // ========== FARCADE SDK INTEGRATION ==========
+
+  private notifyGameReady(): void {
+    try {
+      if (window.FarcadeSDK && window.FarcadeSDK.singlePlayer) {
+        window.FarcadeSDK.singlePlayer.actions.ready();
+        console.log("🎮 Game ready notification sent to Farcade SDK");
+      }
+    } catch (error) {
+      console.warn("Failed to notify SDK of game ready:", error);
+    }
+  }
+
+  private notifyGameOver(score: number): void {
+    try {
+      if (window.FarcadeSDK && window.FarcadeSDK.singlePlayer) {
+        window.FarcadeSDK.singlePlayer.actions.gameOver({ score });
+        console.log(
+          `🏁 Game over notification sent to Farcade SDK with score: ${score}`
+        );
+      }
+    } catch (error) {
+      console.warn("Failed to notify SDK of game over:", error);
+    }
+  }
+
+  private triggerHapticFeedback(): void {
+    try {
+      if (window.FarcadeSDK && window.FarcadeSDK.singlePlayer) {
+        window.FarcadeSDK.singlePlayer.actions.hapticFeedback();
+      }
+    } catch (error) {
+      console.warn("Failed to trigger haptic feedback:", error);
+    }
+  }
+
+  private setupSDKEventListeners(): void {
+    try {
+      if (window.FarcadeSDK) {
+        // Handle play again requests
+        window.FarcadeSDK.on("play_again", () => {
+          console.log("🔄 Play again requested from SDK");
+          this.resetGame();
+        });
+
+        // Handle mute/unmute requests
+        window.FarcadeSDK.on("toggle_mute", (data: any) => {
+          console.log(
+            `🔊 Toggle mute requested: ${data.isMuted ? "muted" : "unmuted"}`
+          );
+          this.setGameMuted(data.isMuted);
+        });
+
+        console.log("🔗 SDK event listeners set up");
+      }
+    } catch (error) {
+      console.warn("Failed to set up SDK event listeners:", error);
+    }
+  }
+
+  private resetGame(): void {
+    console.log("🔄 Starting complete game reset...");
+
+    // ========== TIMERS AND SYSTEMS CLEANUP ==========
+    // Stop all existing timers
+    if (this.zombieSpawnTimer) {
+      this.zombieSpawnTimer.destroy();
+    }
+    if (this.portalSpawnTimer) {
+      this.portalSpawnTimer.destroy();
+    }
+
+    // Resume physics if paused
+    this.physics.resume();
+
+    // ========== GAME STATE RESET ==========
+    // Reset all game state to initial values
+    this.playerHealth = GameSettings.game.health.player.maxHealth;
+    this.score = 0;
+    this.zombiesKilled = 0;
+    this.difficultyLevel = 1;
+    this.gameStartTime = this.time.now;
+    this.currentSpawnRate = GameSettings.game.zombies.spawnRate;
+    this.currentMaxZombies = GameSettings.game.zombies.maxOnScreen;
+    this.lastHordeTime = 0;
+    this.portalsActivated = 0;
+    this.currentPortalLine = 0;
+    this.portalLineUsed = false;
+    this.lastZombie4Spawn = 0;
+    this.zombie4SpawnCount = 0;
+    this.emergencyButtonUsed = false;
+
+    // Reset weapon to default
+    this.currentWeapon = "machineGun";
+
+    // ========== MULTIPLE PLAYERS CLEANUP ==========
+    console.log(
+      `🔄 Resetting players: current count ${this.currentPlayerCount}, sprites: ${this.playerSprites.length}`
+    );
+
+    // Destroy all additional players (keep only the main player)
+    for (let i = this.playerSprites.length - 1; i > 0; i--) {
+      const playerToRemove = this.playerSprites[i];
+      if (playerToRemove && playerToRemove !== this.player) {
+        playerToRemove.destroy();
+      }
+    }
+
+    // Destroy all additional weapons (keep only the main weapon)
+    for (let i = this.playerWeapons.length - 1; i > 0; i--) {
+      const weaponToRemove = this.playerWeapons[i];
+      if (weaponToRemove && weaponToRemove !== this.playerWeapon) {
+        weaponToRemove.destroy();
+      }
+    }
+
+    // Reset arrays to contain only main player and weapon
+    this.playerSprites = [this.player];
+    this.playerWeapons = [this.playerWeapon];
+    this.currentPlayerCount = 1;
+
+    // ========== MAIN PLAYER RESET ==========
+    // Reset main player position and state to initial values
+    this.player.setPosition(
+      GameSettings.game.player.startX,
+      GameSettings.game.player.startY
+    );
+    this.player.setTint(0xffffff);
+    this.player.play("player-idle");
+    this.player.setScale(GameSettings.spriteScales.player);
+    this.currentPlayerState = "idle";
+
+    // Reset player physics body
+    const playerBody = this.player.body as Phaser.Physics.Arcade.Body;
+    if (playerBody) {
+      playerBody.setVelocity(0, 0);
+      playerBody.setCollideWorldBounds(false);
+      playerBody.setDrag(300);
+    }
+
+    // ========== WEAPON RESET ==========
+    // Update main player weapon to default weapon and position
+    const defaultWeaponConfig = GameSettings.game.weapons.types.machineGun;
+    const weaponSpriteConfig = GameSettings.game.weapons.spriteSheet;
+    const frameIndex =
+      defaultWeaponConfig.spriteRow * weaponSpriteConfig.columns +
+      defaultWeaponConfig.spriteCol;
+
+    this.playerWeapon.setFrame(frameIndex);
+    this.playerWeapon.setPosition(
+      this.player.x + GameSettings.game.player.weapon.offsetX,
+      this.player.y + GameSettings.game.player.weapon.offsetY
+    );
+    this.playerWeapon.setScale(GameSettings.spriteScales.weapons);
+    this.playerWeapon.setRotation(GameSettings.game.player.weapon.rotation);
+
+    // Update weapon UI to show default weapon as selected
+    this.updateWeaponUI();
+
+    console.log(
+      `🔄 Players reset: count ${this.currentPlayerCount}, sprites: ${this.playerSprites.length}`
+    );
+
+    // ========== GAME OBJECTS CLEANUP ==========
+    // Clear all zombies and their associated data
+    this.zombies.clear(true, true);
+    this.zombieDataMap.clear();
+
+    // Clean up all zombie health bars that might be floating
+    this.children.list.forEach((child) => {
+      // Remove any orphaned health bar graphics
+      if (child instanceof Phaser.GameObjects.Graphics) {
+        const graphics = child as Phaser.GameObjects.Graphics;
+        // Check if it's a health bar by looking at its depth (health bars use depth 100-101)
+        if (graphics.depth >= 100 && graphics.depth <= 101) {
+          graphics.destroy();
+        }
+      }
+    });
+
+    // Clear zombie2 shield system
+    this.zombie2ShieldStates.clear();
+    this.zombie2ShieldTimers.clear();
+    this.zombie2ShieldGraphics.forEach((graphics) => graphics.destroy());
+    this.zombie2ShieldGraphics.clear();
+
+    // Clear zombie4 aura system
+    this.zombie4AuraGraphics.forEach((graphics) => graphics.destroy());
+    this.zombie4AuraGraphics.clear();
+
+    // Clear all bullets and projectiles
+    this.bullets.clear(true, true);
+    this.projectiles.clear(true, true);
+
+    // Clear all portals and their text elements
+    this.powerPortals.clear(true, true);
+
+    // Clean up any orphaned portal text elements
+    this.children.list.forEach((child) => {
+      if (child instanceof Phaser.GameObjects.Text) {
+        const text = child as Phaser.GameObjects.Text;
+        // Remove portal-related text (check by depth or other properties)
+        if (text.depth >= 200 && text.depth <= 220) {
+          text.destroy();
+        }
+      }
+    });
+
+    // ========== UI RESET ==========
+    // Reset UI to initial state
+    this.updateScoreDisplay();
+    this.updatePlayerHealthBar();
+
+    // Reset emergency button if it exists
+    if (this.emergencyButton) {
+      this.emergencyButton.setTint(0xffffff);
+      this.emergencyButton.setAlpha(1);
+    }
+
+    // ========== MUSIC RANDOMIZATION ==========
+    // Randomize music for "Play again" to keep it fresh
+    if (this.musicTracks.length > 0) {
+      const newRandomIndex = Math.floor(
+        Math.random() * this.musicTracks.length
+      );
+      // Only change if we have more than one track and it's different from current
+      if (
+        this.musicTracks.length > 1 &&
+        newRandomIndex !== this.currentMusicIndex
+      ) {
+        this.currentMusicIndex = newRandomIndex;
+        console.log(
+          `🎵 Randomized music for restart: switching to track ${
+            this.currentMusicIndex + 1
+          }`
+        );
+
+        // Stop current track and start the new random one
+        if (this.currentMusicTrack && this.currentMusicTrack.isPlaying) {
+          this.currentMusicTrack.stop();
+        }
+        this.playNextTrack();
+      }
+    }
+
+    // ========== RESTART GAME SYSTEMS ==========
+    // Restart spawn timers with initial settings
+    this.zombieSpawnTimer = this.time.addEvent({
+      delay: this.currentSpawnRate,
+      callback: this.spawnZombie,
+      callbackScope: this,
+      loop: true,
+    });
+
+    this.portalSpawnTimer = this.time.addEvent({
+      delay: GameSettings.game.powerPortals.spawnRate,
+      callback: this.spawnPortalSet,
+      callbackScope: this,
+      loop: true,
+    });
+
+    console.log("🔄 Game reset completed - back to initial state");
+  }
+
+  private setGameMuted(isMuted: boolean): void {
+    try {
+      // Set volume for all music tracks
+      this.musicTracks.forEach((track) => {
+        if (track) {
+          (track as any).volume = isMuted ? 0 : GameSettings.audio.music.volume;
+        }
+      });
+
+      // Set volume for current music track
+      if (this.currentMusicTrack) {
+        (this.currentMusicTrack as any).volume = isMuted
+          ? 0
+          : GameSettings.audio.music.volume;
+      }
+
+      console.log(`🔊 Game audio ${isMuted ? "muted" : "unmuted"}`);
+    } catch (error) {
+      console.warn("Failed to set game muted state:", error);
+    }
+  }
+
+  private updateWeaponUI(): void {
+    // Hide all weapon outlines first
+    this.weaponOutlines.forEach((outline) => {
+      outline.setVisible(false);
+    });
+
+    // Show outline for the current weapon
+    const currentOutline = this.weaponOutlines.get(this.currentWeapon);
+    if (currentOutline) {
+      const uiConfig = GameSettings.game.weapons.ui;
+      currentOutline.clear();
+      currentOutline.lineStyle(3, uiConfig.selectedOutlineColor);
+
+      // Find the weapon icon to get its position
+      const weaponIcon = this.weaponIcons.children.entries.find(
+        (icon: any) => icon.weaponKey === this.currentWeapon
+      ) as Phaser.GameObjects.Image;
+
+      if (weaponIcon) {
+        // Use rounded corners for the selection border
+        const cornerRadius = 4;
+        currentOutline.strokeRoundedRect(
+          weaponIcon.x - (weaponIcon.width * uiConfig.scale) / 2,
+          weaponIcon.y - (weaponIcon.height * uiConfig.scale) / 2,
+          weaponIcon.width * uiConfig.scale,
+          weaponIcon.height * uiConfig.scale,
+          cornerRadius
+        );
+      }
+
+      currentOutline.setVisible(true);
+    }
+  }
+
+  private handleGameOver(): void {
+    console.log(`🏁 Game Over! Final Score: ${this.score}`);
+
+    // Stop zombie spawning
+    if (this.zombieSpawnTimer) {
+      this.zombieSpawnTimer.destroy();
+    }
+
+    // Stop portal spawning
+    if (this.portalSpawnTimer) {
+      this.portalSpawnTimer.destroy();
+    }
+
+    // Stop all game systems
+    this.physics.pause();
+
+    // Play player death animation
+    this.player.play("player-death");
+
+    // Stop player movement
+    const playerBody = this.player.body as Phaser.Physics.Arcade.Body;
+    if (playerBody) {
+      playerBody.setVelocity(0, 0);
+    }
+
+    // Notify SDK of game over
+    this.notifyGameOver(this.score);
+  }
+
+  private setupResponsiveResize(): void {
+    // Handle window resize for better responsiveness on taller screens
+    this.scale.on('resize', (gameSize: any, baseSize: any, displaySize: any, resolution: any) => {
+      debugLog("🔄 Window resized:", { gameSize, baseSize, displaySize, resolution });
+      
+      // Recalculate UI positions for new screen size
+      this.updateUIPositionsForResize(gameSize.width, gameSize.height);
+    });
+
+    // Also listen to orientation changes on mobile
+    if (typeof window !== 'undefined') {
+      window.addEventListener('orientationchange', () => {
+        setTimeout(() => {
+          debugLog("📱 Orientation changed, adjusting layout");
+          const newWidth = this.scale.gameSize.width;
+          const newHeight = this.scale.gameSize.height;
+          this.updateUIPositionsForResize(newWidth, newHeight);
+        }, 100);
+      });
+    }
+
+    debugLog("📏 Responsive resize system initialized");
+  }
+
+  private updateUIPositionsForResize(width: number, height: number): void {
+    // Update header background
+    if (this.headerBackground) {
+      this.headerBackground.clear();
+      this.headerBackground.fillStyle(0x000000, 0.9);
+      this.headerBackground.fillRect(0, 0, width, 80);
+    }
+
+    // Update score and kills text positions
+    const newThirdWidth = width / 3;
+    const newTwoThirdsWidth = width * 2 / 3;
+
+    if (this.scoreText) {
+      this.scoreText.setPosition(newThirdWidth, 40);
+    }
+    if ((this as any).scoreNumberText) {
+      (this as any).scoreNumberText.setPosition(this.scoreText.x + this.scoreText.width / 2 + 5, this.scoreText.y);
+    }
+    if (this.killsText) {
+      this.killsText.setPosition(newTwoThirdsWidth, 40);
+    }
+    if ((this as any).killsNumberText) {
+      (this as any).killsNumberText.setPosition(this.killsText.x + this.killsText.width / 2 + 5, this.killsText.y);
+    }
+
+    // Update emergency button position (keep it in bottom right relative to new size)
+    if (this.emergencyButton) {
+      const buttonConfig = GameSettings.game.emergencyButton;
+      this.emergencyButton.setPosition(width - 50, height - 85); // Adjust from bottom-right
+    }
+
+    // Update weapon selector positions (keep them on the left side, relative to new height)
+    if (this.weaponIcons && this.weaponIcons.children) {
+      const weaponConfig = GameSettings.game.weapons.ui;
+      const weaponCount = Object.keys(GameSettings.game.weapons.types).length;
+      const weaponIconSize = 32 * weaponConfig.scale;
+      const totalWeaponHeight = (weaponCount - 1) * weaponConfig.spacing + weaponIconSize;
+      const startY = height - totalWeaponHeight - 50;
+
+      this.weaponIcons.children.entries.forEach((icon: any, index: number) => {
+        if (icon && icon.setPosition) {
+          const newY = startY + index * weaponConfig.spacing;
+          icon.setPosition(50, newY);
+        }
+      });
+
+      // Update weapon outlines and backgrounds positions
+      if (this.weaponOutlines) {
+        this.weaponOutlines.forEach((outline: any, weaponKey: string) => {
+          const weaponIndex = Object.keys(GameSettings.game.weapons.types).indexOf(weaponKey);
+          if (weaponIndex !== -1 && outline.clear) {
+            const newY = startY + weaponIndex * weaponConfig.spacing;
+            outline.clear();
+            if (weaponKey === this.currentWeapon) {
+              outline.lineStyle(3, weaponConfig.selectedOutlineColor);
+              outline.strokeRoundedRect(50 - weaponIconSize/2, newY - weaponIconSize/2, weaponIconSize, weaponIconSize, 4);
+              outline.setVisible(true);
+            }
+          }
+        });
+      }
+
+      if (this.weaponBackgrounds) {
+        this.weaponBackgrounds.forEach((background: any, weaponKey: string) => {
+          const weaponIndex = Object.keys(GameSettings.game.weapons.types).indexOf(weaponKey);
+          if (weaponIndex !== -1 && background.clear) {
+            const newY = startY + weaponIndex * weaponConfig.spacing;
+            const padding = weaponConfig.padding * 1.5;
+            background.clear();
+            background.fillStyle(weaponConfig.backgroundColor, weaponConfig.backgroundAlpha);
+            background.fillRoundedRect(50 - weaponIconSize/2 - padding/2, newY - weaponIconSize/2 - padding/2, weaponIconSize + padding, weaponIconSize + padding, 12);
+          }
+        });
+      }
+    }
+
+    debugLog("🎯 UI positions updated for new size:", { width, height });
   }
 
   shutdown() {
